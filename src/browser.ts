@@ -1,0 +1,197 @@
+/**
+ * Chromium launch, hardened contexts and page loading (WS-3b, plan section 4).
+ *
+ * Two app-level SSRF layers per context, sharing one `blocked` list:
+ *  - `context.route` re-runs the src/guard.ts checks on the first URL of every
+ *    request and aborts early with a clear reason;
+ *  - every connection, redirect hops included, goes through the egress proxy
+ *    (src/egress.ts), because route handlers never see redirect hops.
+ * Real scans also run behind docker/egress.sh (WS-3f).
+ */
+
+import { chromium } from 'playwright';
+import type { Browser, BrowserContext, Page, Request } from 'playwright';
+import { allowedAddress, startEgressProxy } from './egress.js';
+import type { BlockedRequest, Dial } from './egress.js';
+import type { Lookup } from './guard.js';
+import type { Logger } from './log.js';
+
+export type { BlockedRequest } from './egress.js';
+
+export const PAGE_TIMEOUT_MS = 20_000;
+export const MAX_REDIRECTS = 5;
+const CLOSE_GRACE_MS = 2_000;
+
+export const UA_SUFFIX = 'StateCheckScan/1 (+https://statechecksecurity.com/scan)';
+
+const LAUNCH_ARGS = [
+  '--disable-dev-shm-usage',
+  '--no-first-run',
+  '--disable-extensions',
+  // WebRTC UDP does not go through the proxy; keep it off so it cannot reach private ranges.
+  '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
+];
+
+export function launchBrowser(): Promise<Browser> {
+  return chromium.launch({ headless: true, args: LAUNCH_ARGS });
+}
+
+/** A normal desktop Chromium UA (not "HeadlessChrome", so tag managers behave as for a visitor) plus our suffix. */
+export function userAgent(browserVersion: string): string {
+  return `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browserVersion} Safari/537.36 ${UA_SUFFIX}`;
+}
+
+export interface HardenedContextOptions {
+  lookup?: Lookup;
+  log: Logger;
+  signal?: AbortSignal;
+  /** Replaces the proxy's TCP dial. Tests always pass one so no packet leaves the machine. */
+  dial?: Dial;
+  /**
+   * Registers routes that run *after* the route guard lets a request through.
+   * Tests use it to fulfil requests from fixtures; production leaves it unset
+   * and allowed requests go out through the egress proxy.
+   */
+  install?: (context: BrowserContext) => Promise<void>;
+}
+
+export interface HardenedContext {
+  context: BrowserContext;
+  blocked: BlockedRequest[];
+}
+
+export async function newHardenedContext(browser: Browser, opts: HardenedContextOptions): Promise<HardenedContext> {
+  const blocked: BlockedRequest[] = [];
+  const proxy = await startEgressProxy({
+    log: opts.log,
+    blocked,
+    ...(opts.lookup ? { lookup: opts.lookup } : {}),
+    ...(opts.dial ? { dial: opts.dial } : {}),
+  });
+  let context: BrowserContext;
+  try {
+    context = await browser.newContext({
+      userAgent: userAgent(browser.version()),
+      acceptDownloads: false,
+      serviceWorkers: 'block',
+      permissions: [],
+      viewport: { width: 1366, height: 768 },
+      locale: 'en-IN',
+      timezoneId: 'Asia/Kolkata',
+      // Explicit, so loopback never bypasses the proxy whatever Playwright's default becomes.
+      proxy: { server: proxy.server, bypass: '<-loopback>' },
+    });
+  } catch (err) {
+    await proxy.close();
+    throw err;
+  }
+  context.on('close', () => {
+    void proxy.close();
+  });
+
+  if (opts.install) await opts.install(context);
+
+  // Resolution cache for the route layer; the proxy keeps its own and dials what it validated.
+  const resolved = new Map<string, Promise<string[]>>();
+  await context.route('**/*', async (route) => {
+    const url = new URL(route.request().url());
+    if (await allowedAddress(url, resolved, opts.lookup)) return route.fallback();
+    blocked.push({ host: url.hostname, reason: 'ssrf' });
+    opts.log('request-blocked', { host: url.hostname, reason: 'ssrf', layer: 'route' });
+    return route.abort('blockedbyclient');
+  });
+
+  if (opts.signal) {
+    const onAbort = (): void => {
+      // Closing aborts every in-flight navigation; the orchestrator reports the scan as partial.
+      context.close().catch(() => undefined);
+    };
+    if (opts.signal.aborted) onAbort();
+    else opts.signal.addEventListener('abort', onAbort, { once: true });
+  }
+
+  return { context, blocked };
+}
+
+export type LoadOutcome =
+  | { status: 'loaded'; httpStatus?: number; settled: boolean }
+  | { status: 'timeout' | 'error' | 'blocked'; httpStatus?: number };
+
+function redirectHops(request: Request): number {
+  let hops = 0;
+  for (let r = request.redirectedFrom(); r; r = r.redirectedFrom()) hops += 1;
+  return hops;
+}
+
+/**
+ * Load a page once within `timeoutMs`: wait for `load`, then for network idle
+ * with whatever time is left. A page that never goes idle (polling SPAs) still
+ * counts as loaded, with `settled: false`. We never reload, because a second
+ * load would double every tracker request the capture records.
+ *
+ * Pass the context's `blocked` list so a navigation the guard refused is
+ * reported as `blocked` rather than `error`. A chain of more than
+ * MAX_REDIRECTS redirects is reported as `blocked` too: Chromium has already
+ * followed it (every hop was checked by the proxy), but we do not use the page.
+ */
+export async function loadPage(
+  page: Page,
+  url: string,
+  opts: { timeoutMs?: number; blocked?: BlockedRequest[] } = {},
+): Promise<LoadOutcome> {
+  const timeoutMs = opts.timeoutMs ?? PAGE_TIMEOUT_MS;
+  const deadline = Date.now() + timeoutMs;
+  const blockedBefore = opts.blocked?.length ?? 0;
+  let httpStatus: number | undefined;
+  try {
+    const response = await page.goto(url, { waitUntil: 'load', timeout: timeoutMs });
+    if (response && redirectHops(response.request()) > MAX_REDIRECTS) {
+      opts.blocked?.push({ host: new URL(response.url()).hostname, reason: 'redirects' });
+      return { status: 'blocked' };
+    }
+    httpStatus = response?.status();
+  } catch (err) {
+    if (isTimeout(err)) return { status: 'timeout' };
+    return { status: (opts.blocked?.length ?? 0) > blockedBefore ? 'blocked' : 'error' };
+  }
+  const withStatus = httpStatus === undefined ? {} : { httpStatus };
+  const remaining = deadline - Date.now();
+  if (remaining <= 0) return { status: 'loaded', ...withStatus, settled: false };
+  try {
+    await page.waitForLoadState('networkidle', { timeout: remaining });
+    return { status: 'loaded', ...withStatus, settled: true };
+  } catch {
+    return { status: 'loaded', ...withStatus, settled: false };
+  }
+}
+
+function isTimeout(err: unknown): boolean {
+  return err instanceof Error && err.name === 'TimeoutError';
+}
+
+/** Resolve with the promise, or call `onTimeout` and resolve with its value after `ms`. */
+export async function withTimeout<T>(promise: Promise<T>, ms: number, onTimeout: () => T): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(onTimeout()), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Close the browser, giving up after 2 s. Playwright kills browsers it
+ * launched when the Node process exits, so a hung close is cleaned up by the
+ * CLI exiting; the hosted worker (WS-10) will run each scan in its own process.
+ */
+export async function killBrowser(browser: Browser, log: Logger): Promise<void> {
+  const closed = await withTimeout(
+    browser.close().then(() => true),
+    CLOSE_GRACE_MS,
+    () => false,
+  );
+  if (!closed) log('browser-close-timeout', { graceMs: CLOSE_GRACE_MS });
+}

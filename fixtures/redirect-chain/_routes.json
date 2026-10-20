@@ -1,0 +1,8 @@
+{
+  "site.fixture.in/hop1": { "status": 302, "headers": { "location": "/hop2" } },
+  "site.fixture.in/hop2": { "status": 302, "headers": { "location": "/hop3" } },
+  "site.fixture.in/hop3": { "status": 302, "headers": { "location": "/hop4" } },
+  "site.fixture.in/hop4": { "status": 302, "headers": { "location": "/hop5" } },
+  "site.fixture.in/hop5": { "status": 302, "headers": { "location": "/hop6" } },
+  "site.fixture.in/hop6": { "status": 302, "headers": { "location": "/end.html" } }
+}

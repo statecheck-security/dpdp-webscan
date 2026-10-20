@@ -1,10 +1,12 @@
 # Fixture sites
 
-Local static pages the engine is tested against (plan WS-8). `test/fixtures.ts` serves each folder from `node:http` on an ephemeral port and routes every browser request to it through Playwright, so tests never touch the internet.
+Local static pages the engine is tested against (plan WS-8). `test/fixtures.ts` fulfils every browser request from these folders through Playwright routing, so tests never touch the internet.
 
-**Hosts.** The scanned site is `https://site.fixture.in`; fake third parties are `tracker.fixture.in`, `replay.fixture.in`, `forms.fixture.in` and `cmp.fixture.in`. They end in `.in` so `src/guard.ts` accepts them unchanged (it blocks `.test`, `.example` and `.local`; never weaken it for a fixture). A fake resolver returns a public address and the route handler fulfils every request locally, so no packet leaves the machine.
+**Hosts.** The scanned site is `https://site.fixture.in`; fake third parties are `tracker.fixture.in`, `replay.fixture.in`, `forms.fixture.in` and `cmp.fixture.in`. They end in `.in` so `src/guard.ts` accepts them unchanged (it blocks `.test`, `.example` and `.local`; never weaken it for a fixture). `fakeLookup` returns a public address for them (`private.fixture.in` and `metadata.fixture.in` resolve to private ones, for SSRF tests).
 
-**Layout.** One folder per fixture, `index.html` first, extra pages (`privacy.html`, `cookies.html`, `contact.html`, `grievance.html`, `terms.html`) as needed. The first line of every `index.html` is an HTML comment naming the check it exercises. Fake tracker scripts are tiny inline files that set a cookie and fetch a 1×1 image from the fake host.
+**Redirects.** Playwright route handlers only see the first URL of a redirect chain; later hops go through the engine's egress proxy (`src/egress.ts`). In tests the proxy's dial is always replaced: `noNetworkDial` refuses everything, and `serveFixtureHttp` serves a fixture from a local `node:http` server for plain-http redirect chains.
+
+**Layout.** One folder per fixture, `index.html` first, extra pages (`privacy.html`, `cookies.html`, `contact.html`, `grievance.html`, `terms.html`) as needed. The first line of every `index.html` is an HTML comment naming the check it exercises. `_routes.json` (optional) holds canned responses keyed `host/path` (status, headers, body), for redirects and special headers. Third-party content lives in `<fixture>/_hosts/<host>/` or, when shared, `_shared/<host>/`. Fake tracker scripts are tiny inline files that set a cookie and fetch a 1×1 image from the fake host.
 
 | Fixture                                           | Exercises                                                                                                                                                  |
 | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -22,6 +24,9 @@ Local static pages the engine is tested against (plan WS-8). `test/fixtures.ts` 
 | `policy-complete/` and `policy-missing-items/`    | W12–W16                                                                                                                                                    |
 | `policy-120-days/`                                | W14 (period published but above 90 days)                                                                                                                   |
 | `redirect-to-private/`, `subresource-to-private/` | SSRF interception                                                                                                                                          |
+| `redirect-chain/`                                 | Redirect limit: 5 hops load, 6 are refused                                                                                                                 |
+| `never-settles/`                                  | Page timeout: polls forever, never goes network-idle                                                                                                       |
+| `download/`                                       | Downloads refused                                                                                                                                          |
 | `robots-disallow/`                                | robots.txt honoured for extra pages, `skipped-robots` status                                                                                               |
 | `bot-wall/`                                       | 403 with a challenge marker → `blocked-bot-wall`, partial                                                                                                  |
 

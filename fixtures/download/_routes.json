@@ -1,0 +1,7 @@
+{
+  "site.fixture.in/file.bin": {
+    "status": 200,
+    "headers": { "content-type": "application/octet-stream", "content-disposition": "attachment; filename=file.bin" },
+    "body": "not a real file"
+  }
+}
