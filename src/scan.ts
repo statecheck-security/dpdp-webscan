@@ -24,6 +24,6 @@ export const SCAN_TIMEOUT_MS = 90_000;
 export const MAX_PAGES = 5;
 export const MAX_REDIRECTS = 5;
 
-export async function runScan(target: URL): Promise<ScanResult> {
-  throw new Error(`runScan is not implemented yet (WS-3 to WS-5); target was ${target.hostname}.`);
+export function runScan(target: URL): Promise<ScanResult> {
+  return Promise.reject(new Error(`runScan is not implemented yet (WS-3 to WS-5); target was ${target.hostname}.`));
 }

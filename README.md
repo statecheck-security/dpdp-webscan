@@ -4,7 +4,7 @@ The engine behind **DPDPA Website Check** (`statechecksecurity.com/scan`). It lo
 
 Each finding points at the section of the Digital Personal Data Protection Act, 2023 or the DPDP Rules, 2025 it engages, labelled **settled**, **likely** or **open**. There is **no score**, and no "compliant" verdict.
 
-**Status:** scaffold. The URL guard and result signing work and are tested; the scan itself is not built yet. See [`.claude/scan-tool.md`](.claude/scan-tool.md) for the plan.
+**Status:** scaffold. The URL guard and result signing work and are tested; the scan itself is not built yet. The build plan is kept outside the repo.
 
 ## What it never does
 
@@ -27,8 +27,12 @@ Run scans inside the egress-restricted Docker network (planned), never with a ba
 ## Development
 
 ```bash
-npm run typecheck
-npm test
+npm run lint           # tsc + eslint
+npm run test:unit      # fast tests
+npm run test:browser   # *.browser.test.ts, needs `npm run browsers` once
+npm test               # everything
 ```
+
+Tests never touch the network: browser tests route every request to local fixture servers (`fixtures/README.md`).
 
 Not legal advice. The provisions take effect on 13 May 2027.
