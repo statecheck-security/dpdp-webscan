@@ -9,21 +9,55 @@
 
 import type { CheckId, InfoId } from './checks.js';
 
-export const ENGINE_VERSION = '0.0.0';
+// Bump with any change to the result shape or a detection rule (CLAUDE.md, decision 8).
+export const ENGINE_VERSION = '0.1.0';
+
+export type PageReason = 'requested' | 'privacy' | 'cookies' | 'contact' | 'grievance' | 'terms';
+
+/**
+ * Outcome of loading a page. `skipped-robots` is our choice to honour
+ * robots.txt for the extra pages (plan section 4), not something that blocked us.
+ */
+export type PageStatus = 'loaded' | 'timeout' | 'skipped-robots' | 'blocked-bot-wall' | 'blocked-ssrf' | 'error';
 
 /** A page the engine loaded (or tried to). */
 export interface PageVisit {
   url: string;
   /** Why the page was chosen: the requested URL, or the link text that led to it. */
-  reason: 'requested' | 'privacy' | 'cookies' | 'contact' | 'grievance' | 'terms';
-  status: 'loaded' | 'timeout' | 'blocked-robots' | 'blocked-bot-wall' | 'blocked-ssrf' | 'error';
+  reason: PageReason;
+  status: PageStatus;
   httpStatus?: number;
 }
+
+/** Machine codes for why a scan is partial (WS-3a). scs renders the words. */
+export const PARTIAL_REASONS = [
+  'page-timeout',
+  'scan-timeout',
+  'bot-wall',
+  'ssrf-blocked',
+  'banner-not-found',
+  'navigation-error',
+] as const;
+
+export type PartialReason = (typeof PARTIAL_REASONS)[number];
+
+export const TRACKER_CATEGORIES = [
+  'analytics',
+  'ads',
+  'social',
+  'session-replay',
+  'tag-manager',
+  'cmp',
+  'other',
+] as const;
+
+export type TrackerCategory = (typeof TRACKER_CATEGORIES)[number];
 
 /** A third-party request seen on a page. Hostnames only, never full URLs with query strings. */
 export interface ThirdPartyRequest {
   host: string;
-  category?: 'analytics' | 'ads' | 'social' | 'session-replay' | 'tag-manager' | 'cmp' | 'other';
+  category?: TrackerCategory;
+  vendor?: string;
   pageUrl: string;
   count: number;
 }
@@ -48,6 +82,10 @@ export interface Evidence {
   quote?: string;
   /** Extra clicks needed to reach a reject control (W4). */
   clicksToReject?: number;
+  /** Consent-management vendor, when the banner matched a known CMP. */
+  bannerVendor?: string;
+  /** `lang` attributes seen on the scanned pages (notice-languages info item). */
+  pageLang?: string[];
   form?: {
     pageUrl: string;
     method: 'get' | 'post' | 'dialog';
@@ -76,6 +114,8 @@ export interface ScanResult {
   finishedAt: string;
   /** True when a timeout or block stopped part of the scan. */
   partial: boolean;
+  /** Why the scan is partial; empty when `partial` is false. */
+  partialReasons: PartialReason[];
   pages: PageVisit[];
   findings: Finding[];
   info: Info[];
