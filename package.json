@@ -1,0 +1,26 @@
+{
+  "name": "dpdp-webscan",
+  "version": "0.0.0",
+  "description": "DPDPA Website Check engine: loads a public site in headless Chromium and reports what it does before visitors choose, mapped to the DPDP Act and Rules. No score.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "scan": "tsx src/cli.ts",
+    "scan:send": "tsx src/send.ts",
+    "browsers": "playwright install chromium",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "playwright": "^1.64.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

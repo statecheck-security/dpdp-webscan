@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Scan output (contains third-party domains; never commit)
+results/
+
+# Environment — never commit secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Claude Code — local permission grants (machine-specific). The plan and CLAUDE.md in .claude/ are tracked.
+.claude/settings.local.json
+.claude
