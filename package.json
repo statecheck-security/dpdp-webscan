@@ -12,15 +12,24 @@
     "scan:send": "tsx src/send.ts",
     "browsers": "playwright install chromium",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:unit": "vitest run --exclude \"test/**/*.browser.test.ts\"",
+    "test:browser": "vitest run browser.test --passWithNoTests",
+    "lint": "tsc --noEmit && eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "playwright": "^1.64.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^24.19.2",
+    "eslint": "^10.13.0",
+    "prettier": "^3.9.10",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.0",
     "vitest": "^5.0.5"
   }
 }

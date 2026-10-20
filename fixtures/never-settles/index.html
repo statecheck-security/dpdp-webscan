@@ -1,0 +1,14 @@
+<!-- Exercises: page timeout (WS-3b). The page polls every 200 ms, so the network never goes idle; loadPage must still return within its budget. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Never settles</title>
+  </head>
+  <body>
+    <p>Polling.</p>
+    <script>
+      setInterval(() => fetch('/poll.json').catch(() => undefined), 200);
+    </script>
+  </body>
+</html>

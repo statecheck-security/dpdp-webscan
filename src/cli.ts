@@ -32,7 +32,9 @@ async function main(): Promise<number> {
   const stamp = result.startedAt.replace(/[:.]/g, '-');
   const file = join('results', `${target.hostname}-${stamp}.json`);
   await writeFile(file, `${JSON.stringify(result, null, 2)}\n`, 'utf8');
-  console.log(`Wrote ${file}: ${result.findings.length} findings, ${result.pages.length} pages${result.partial ? ' (partial)' : ''}.`);
+  console.log(
+    `Wrote ${file}: ${result.findings.length} findings, ${result.pages.length} pages${result.partial ? ' (partial)' : ''}.`,
+  );
   return 0;
 }
 

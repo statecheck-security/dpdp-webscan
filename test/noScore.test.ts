@@ -15,9 +15,14 @@ function codeLines(file: string): string[] {
 
 describe('no-score rule', () => {
   it('no source line outside comments names a score-like field', () => {
-    const offenders = readdirSync('src')
+    // Recursive so src/checks/ and src/data/ are covered too.
+    const offenders = readdirSync('src', { recursive: true, encoding: 'utf8' })
       .filter((f) => f.endsWith('.ts'))
-      .flatMap((f) => codeLines(join('src', f)).filter((l) => FORBIDDEN.test(l)).map((l) => `${f}: ${l.trim()}`));
+      .flatMap((f) =>
+        codeLines(join('src', f))
+          .filter((l) => FORBIDDEN.test(l))
+          .map((l) => `${f}: ${l.trim()}`),
+      );
     expect(offenders).toEqual([]);
   });
 

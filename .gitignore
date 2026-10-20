@@ -16,6 +16,10 @@ results/
 *.log
 npm-debug.log*
 
+# Test and Playwright output
+playwright-report/
+test-results/
+
 # OS / editor
 .DS_Store
 Thumbs.db

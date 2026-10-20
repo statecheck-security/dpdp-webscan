@@ -15,14 +15,7 @@ import { lookup as dnsLookup } from 'node:dns/promises';
 export class TargetError extends Error {
   constructor(
     public readonly code:
-      | 'INVALID_URL'
-      | 'SCHEME'
-      | 'CREDENTIALS'
-      | 'PORT'
-      | 'IP_LITERAL'
-      | 'HOSTNAME'
-      | 'BLOCKED_ADDRESS'
-      | 'DNS',
+      'INVALID_URL' | 'SCHEME' | 'CREDENTIALS' | 'PORT' | 'IP_LITERAL' | 'HOSTNAME' | 'BLOCKED_ADDRESS' | 'DNS',
     message: string,
   ) {
     super(message);
