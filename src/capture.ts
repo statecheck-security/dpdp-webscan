@@ -157,7 +157,9 @@ export function attachCapture(context: BrowserContext, opts: CaptureOptions): Ca
 
   async function readCookies(): Promise<{ name: string; domain: string; expires: number }[]> {
     // Destructured on purpose: a cookie's value is never copied out of Playwright's object.
-    return (await context.cookies()).map(({ name, domain, expires }) => ({ name, domain, expires }));
+    // A context closed by the scan timeout has no cookies to read; the snapshot is still taken (partial).
+    const cookies = await context.cookies().catch(() => []);
+    return cookies.map(({ name, domain, expires }) => ({ name, domain, expires }));
   }
 
   async function readStorage(): Promise<FrameStorage[]> {
