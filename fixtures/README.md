@@ -26,6 +26,8 @@ Local static pages the engine is tested against (plan WS-8). `test/fixtures.ts` 
 | `redirect-to-private/`, `subresource-to-private/` | SSRF interception                                                                                                                                          |
 | `redirect-chain/`                                 | Redirect limit: 5 hops load, 6 are refused                                                                                                                 |
 | `never-settles/`                                  | Page timeout: polls forever, never goes network-idle                                                                                                       |
+| `slow-pages/`                                     | Scan budget: extra pages poll forever, so a short budget ends the scan as `scan-timeout`                                                                   |
+| `meta-refresh-loop/`                              | Scan budget: two pages refresh to each other forever                                                                                                       |
 | `download/`                                       | Downloads refused                                                                                                                                          |
 | `robots-disallow/`                                | robots.txt honoured for extra pages, `skipped-robots` status                                                                                               |
 | `bot-wall/`                                       | 403 with a challenge marker → `blocked-bot-wall`, partial                                                                                                  |

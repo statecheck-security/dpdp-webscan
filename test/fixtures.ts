@@ -12,11 +12,12 @@ import { createServer } from 'node:http';
 import { connect, Socket } from 'node:net';
 import type { AddressInfo } from 'node:net';
 import { extname, join, resolve, sep } from 'node:path';
-import type { BrowserContext } from 'playwright';
+import type { Browser, BrowserContext } from 'playwright';
 import type { HardenedContextOptions } from '../src/browser.js';
 import type { Dial } from '../src/egress.js';
 import type { Lookup } from '../src/guard.js';
 import { silentLog } from '../src/log.js';
+import type { ScanOptions } from '../src/scan.js';
 
 export const SITE = 'https://site.fixture.in/';
 const FIXTURES_DIR = resolve('fixtures');
@@ -153,6 +154,25 @@ export async function serveFixtureHttp(fixture: string): Promise<{ dial: Dial; c
         server.closeAllConnections();
         server.close(() => r());
       }),
+  };
+}
+
+/** Options for runScan / collectScan on a fixture: every context routed, the proxy's dial refused, a shared browser. */
+export function fixtureScanOptions(
+  fixture: string,
+  browser: Browser,
+  extra: Partial<ScanOptions> = {},
+): { options: ScanOptions; routing: FixtureRouting } {
+  const routing = routeFixtures(fixture);
+  return {
+    routing,
+    options: {
+      lookup: fakeLookup,
+      browser,
+      log: silentLog,
+      contextOptions: { install: routing.install, dial: noNetworkDial() },
+      ...extra,
+    },
   };
 }
 
