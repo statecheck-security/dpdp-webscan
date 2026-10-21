@@ -115,12 +115,30 @@ export async function newHardenedContext(browser: Browser, opts: HardenedContext
 
 export type LoadOutcome =
   | { status: 'loaded'; httpStatus?: number; settled: boolean }
-  | { status: 'timeout' | 'error' | 'blocked'; httpStatus?: number };
+  | { status: 'bot-wall'; httpStatus: number }
+  | { status: 'blocked'; reason: BlockedRequest['reason'] }
+  | { status: 'timeout' | 'error'; httpStatus?: number };
 
 function redirectHops(request: Request): number {
   let hops = 0;
   for (let r = request.redirectedFrom(); r; r = r.redirectedFrom()) hops += 1;
   return hops;
+}
+
+const BOT_WALL_STATUSES = new Set([403, 429, 503]);
+const BOT_WALL_TITLE =
+  /just a moment|attention required|access denied|access to this page has been denied|pardon our interruption/i;
+const TITLE_TIMEOUT_MS = 2_000;
+
+/**
+ * A challenge page from a bot-protection service (plan section 4): a 403/429/503
+ * with Cloudflare's `cf-mitigated: challenge`, a DataDome header, or a known
+ * challenge title (Cloudflare, Akamai, PerimeterX, Imperva). We report it and
+ * stop; we never retry around it.
+ */
+export function isBotWall(httpStatus: number, headers: Record<string, string>, title: string): boolean {
+  if (!BOT_WALL_STATUSES.has(httpStatus)) return false;
+  return headers['cf-mitigated'] === 'challenge' || 'x-datadome' in headers || BOT_WALL_TITLE.test(title);
 }
 
 /**
@@ -133,6 +151,7 @@ function redirectHops(request: Request): number {
  * reported as `blocked` rather than `error`. A chain of more than
  * MAX_REDIRECTS redirects is reported as `blocked` too: Chromium has already
  * followed it (every hop was checked by the proxy), but we do not use the page.
+ * A bot-protection challenge is reported as `bot-wall` and not waited on.
  */
 export async function loadPage(
   page: Page,
@@ -147,12 +166,21 @@ export async function loadPage(
     const response = await page.goto(url, { waitUntil: 'load', timeout: timeoutMs });
     if (response && redirectHops(response.request()) > MAX_REDIRECTS) {
       opts.blocked?.push({ host: new URL(response.url()).hostname, reason: 'redirects' });
-      return { status: 'blocked' };
+      return { status: 'blocked', reason: 'redirects' };
     }
     httpStatus = response?.status();
+    if (response && httpStatus !== undefined && BOT_WALL_STATUSES.has(httpStatus)) {
+      const title = await withTimeout(
+        page.title().catch(() => ''),
+        TITLE_TIMEOUT_MS,
+        () => '',
+      );
+      if (isBotWall(httpStatus, response.headers(), title)) return { status: 'bot-wall', httpStatus };
+    }
   } catch (err) {
     if (isTimeout(err)) return { status: 'timeout' };
-    return { status: (opts.blocked?.length ?? 0) > blockedBefore ? 'blocked' : 'error' };
+    const refusal = opts.blocked?.slice(blockedBefore)[0];
+    return refusal ? { status: 'blocked', reason: refusal.reason } : { status: 'error' };
   }
   const withStatus = httpStatus === undefined ? {} : { httpStatus };
   const remaining = deadline - Date.now();
