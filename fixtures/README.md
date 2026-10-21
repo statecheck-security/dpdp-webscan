@@ -2,7 +2,7 @@
 
 Local static pages the engine is tested against (plan WS-8). `test/fixtures.ts` fulfils every browser request from these folders through Playwright routing, so tests never touch the internet.
 
-**Hosts.** The scanned site is `https://site.fixture.in`; fake third parties are `tracker.fixture.in`, `replay.fixture.in`, `forms.fixture.in` and `cmp.fixture.in`. They end in `.in` so `src/guard.ts` accepts them unchanged (it blocks `.test`, `.example` and `.local`; never weaken it for a fixture). `fakeLookup` returns a public address for them (`private.fixture.in` and `metadata.fixture.in` resolve to private ones, for SSRF tests).
+**Hosts.** The scanned site is `https://site.fixture.in`; fake third parties are `tracker-fixture.in`, `replay-fixture.in`, `forms-fixture.in` and `cmp-fixture.in`. Each third party is its own registrable domain, as a real vendor is; under `fixture.in` they would share the site's eTLD+1 and count as first party. They end in `.in` so `src/guard.ts` accepts them unchanged (it blocks `.test`, `.example` and `.local`; never weaken it for a fixture). `fakeLookup` returns a public address for them (`private.fixture.in` and `metadata.fixture.in` resolve to private ones, for SSRF tests).
 
 **Redirects.** Playwright route handlers only see the first URL of a redirect chain; later hops go through the engine's egress proxy (`src/egress.ts`). In tests the proxy's dial is always replaced: `noNetworkDial` refuses everything, and `serveFixtureHttp` serves a fixture from a local `node:http` server for plain-http redirect chains.
 

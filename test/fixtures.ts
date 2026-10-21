@@ -28,11 +28,24 @@ const PRIVATE_HOSTS: Record<string, string> = {
   'metadata.fixture.in': '169.254.169.254',
 };
 
+/**
+ * Fake third parties have registrable domains of their own (decision 14, 2026-10-21): under one
+ * `fixture.in` they would share the site's eTLD+1 and count as first party.
+ */
+export const THIRD_PARTY_DOMAINS = ['tracker-fixture.in', 'replay-fixture.in', 'forms-fixture.in', 'cmp-fixture.in'];
+
+export function isFixtureHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return (
+    host.endsWith('.fixture.in') || THIRD_PARTY_DOMAINS.some((domain) => host === domain || host.endsWith(`.${domain}`))
+  );
+}
+
 export const fakeLookup: Lookup = async (hostname) => {
   const host = hostname.toLowerCase();
   const priv = PRIVATE_HOSTS[host];
   if (priv) return [{ address: priv, family: 4 }];
-  if (host.endsWith('.fixture.in')) return [{ address: PUBLIC_ADDRESS, family: 4 }];
+  if (isFixtureHost(host)) return [{ address: PUBLIC_ADDRESS, family: 4 }];
   throw Object.assign(new Error(`fakeLookup: ${host} is not a fixture host`), { code: 'ENOTFOUND' });
 };
 
@@ -103,7 +116,7 @@ export function routeFixtures(fixture: string): FixtureRouting {
     install: async (context) => {
       await context.route('**/*', async (route) => {
         const url = new URL(route.request().url());
-        if (!url.hostname.endsWith('.fixture.in')) {
+        if (!isFixtureHost(url.hostname)) {
           unrouted.push(url.hostname);
           return route.abort('internetdisconnected');
         }
