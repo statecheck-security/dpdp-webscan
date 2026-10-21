@@ -1,0 +1,6 @@
+# Fixture: contact is off limits for every agent.
+User-agent: *
+Disallow: /contact
+Allow: /
+
+Sitemap: https://site.fixture.in/sitemap.xml
