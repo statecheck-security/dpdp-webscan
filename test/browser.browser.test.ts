@@ -31,7 +31,7 @@ describe('route guard', () => {
 
     expect((await loadPage(page, SITE, { blocked })).status).toBe('loaded');
     expect(blocked.map((b) => b.host).sort()).toEqual(['metadata.fixture.in', 'private.fixture.in']);
-    expect(fetched).toContain('tracker.fixture.in');
+    expect(fetched).toContain('tracker-fixture.in');
     expect(fetched).not.toContain('private.fixture.in');
     expect(routing.unrouted).toEqual([]);
     await context.close();

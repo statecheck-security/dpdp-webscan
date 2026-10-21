@@ -1,0 +1,18 @@
+<!-- Exercises: W1, W2 and the WS-3c capture. Before any interaction the page sets a first-party cookie and storage keys, loads a third-party script that sets a third-party cookie and a first-party one, fires a pixel and embeds a third-party frame with its own storage. Every value is the sentinel SECRET-VALUE-DO-NOT-RECORD, which must never appear in a capture. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Trackers before consent</title>
+    <script>
+      document.cookie = 'site_session=SECRET-VALUE-DO-NOT-RECORD; path=/; max-age=86400';
+      localStorage.setItem('site_pref', 'SECRET-VALUE-DO-NOT-RECORD');
+      sessionStorage.setItem('site_tab', 'SECRET-VALUE-DO-NOT-RECORD');
+    </script>
+    <script src="https://tracker-fixture.in/t.js"></script>
+  </head>
+  <body>
+    <p>An ordinary page that tracks before anyone chooses. Page text also carries SECRET-VALUE-DO-NOT-RECORD.</p>
+    <iframe src="https://tracker-fixture.in/frame.html?uid=SECRET-VALUE-DO-NOT-RECORD" title="Tracker frame"></iframe>
+  </body>
+</html>

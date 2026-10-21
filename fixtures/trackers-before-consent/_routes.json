@@ -1,0 +1,10 @@
+{
+  "tracker-fixture.in/t.js": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/javascript; charset=utf-8",
+      "set-cookie": "tp_id=SECRET-VALUE-DO-NOT-RECORD; Path=/; Max-Age=31536000; SameSite=None; Secure"
+    },
+    "body": "document.cookie = '_tid=SECRET-VALUE-DO-NOT-RECORD; path=/; max-age=63072000'; new Image().src = 'https://tracker-fixture.in/pixel.gif?id=SECRET-VALUE-DO-NOT-RECORD';"
+  }
+}
