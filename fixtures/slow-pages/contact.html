@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Contact us</title>
+  </head>
+  <body>
+    <p>Polling.</p>
+    <script>
+      setInterval(() => fetch('/poll.json').catch(() => undefined), 200);
+    </script>
+  </body>
+</html>

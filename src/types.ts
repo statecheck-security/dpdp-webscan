@@ -10,7 +10,7 @@
 import type { CheckId, InfoId } from './checks.js';
 
 // Bump with any change to the result shape or a detection rule (CLAUDE.md, decision 8).
-export const ENGINE_VERSION = '0.1.0';
+export const ENGINE_VERSION = '0.2.0';
 
 export type PageReason = 'requested' | 'privacy' | 'cookies' | 'contact' | 'grievance' | 'terms';
 

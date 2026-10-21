@@ -1,0 +1,34 @@
+<!-- Exercises: the negative for every check (WS-3e onward). No trackers, no identifiers before a choice, a banner with reject next to accept, a persistent cookie-settings link, links to four policy pages that publish every item W12–W16 look for. A scan visits 5 pages and finds nothing. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Clean</title>
+  </head>
+  <body>
+    <div id="consent-banner" role="dialog" aria-label="Cookie consent" style="position: fixed; bottom: 0">
+      <p>We use cookies only if you agree. You can change your choice any time with "Cookie settings".</p>
+      <button type="button" id="reject">Reject all</button>
+      <button type="button" id="accept">Accept all</button>
+    </div>
+    <main>
+      <h1>Example Traders</h1>
+      <p>An ordinary shop page.</p>
+    </main>
+    <footer>
+      <a href="/privacy">Privacy Policy</a>
+      <a href="/cookies">Cookie Policy</a>
+      <a href="/contact">Contact us</a>
+      <a href="/grievance">Grievance Redressal</a>
+      <a href="/terms">Terms of Use</a>
+      <a href="#" id="cookie-settings">Cookie settings</a>
+    </footer>
+    <script>
+      for (const id of ['reject', 'accept']) {
+        document.getElementById(id).addEventListener('click', () => {
+          document.getElementById('consent-banner').hidden = true;
+        });
+      }
+    </script>
+  </body>
+</html>
