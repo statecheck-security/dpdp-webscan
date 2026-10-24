@@ -22,7 +22,26 @@ npm run scan -- https://example.in
 npm run scan:send -- <requestId> results/<file>.json
 ```
 
-Run scans inside the egress-restricted Docker network (planned), never with a bare browser on your own network.
+Run real scans inside the egress-restricted container (below), never with a bare browser on your own network.
+
+## Docker (egress-restricted scans)
+
+Every real scan runs in a container whose kernel rejects traffic to private, loopback, link-local (including cloud metadata `169.254.169.254`), CGNAT, multicast and reserved addresses: the same ranges `src/guard.ts` refuses. The app-level guard alone can be beaten by DNS rebinding; these rules cannot be changed from inside the scan.
+
+```bash
+npm run scan:docker -- https://example.in    # build if needed, scan, write results/<host>-<time>.json
+npm run scan:docker:selftest                 # egress self-test, makes no public request
+```
+
+How it works:
+
+- `docker/Dockerfile` builds on `mcr.microsoft.com/playwright:v<version>-noble`; the tag must equal the Playwright version in `package-lock.json` (a unit test checks).
+- `docker/egress.sh` is the entrypoint. As root it allows loopback (the engine's per-context egress proxy listens on `127.0.0.1`; Docker's DNS is `127.0.0.11`), then installs `iptables`/`ip6tables` `OUTPUT` REJECT rules for every range, plus all IPv6 outside `2000::/3`. If any rule fails it exits non-zero and the scan never starts. It then drops to the unprivileged `pwuser` with no capabilities and `no_new_privs`, so nothing in the scan can flush the rules. `test/egress.test.ts` fails if its ranges drift from `src/guard.ts`.
+- `docker/compose.yml` adds `NET_ADMIN` (only for `egress.sh`), a 2 GB memory cap, 512 processes, a read-only root with `/tmp` as tmpfs (`HOME=/tmp`), and mounts `./results`. It points Docker's DNS at public resolvers, because on Docker Desktop the default upstream is a private address the rules reject. No `.env` or secret goes into the image (`.dockerignore` admits only `package*.json`, `tsconfig.json`, `src/` and the two scripts); `scan:send` runs on the host.
+
+The self-test runs as the scan user and passes only if `curl` to `169.254.169.254`, `10.0.0.1`, `172.16.0.1`, `192.168.1.1`, `100.64.0.1`, `fd00::1` and `fe80::1` fails at once with "couldn't connect", `iptables -F` is refused, the process has no capabilities, and loopback works. CI runs it on every push (`docker` job). Without the rules, the same IPv4 probes time out instead of being rejected.
+
+On Linux hosts the bind-mounted `results/` must be writable by uid 1001 (`pwuser`); Docker Desktop on Windows and macOS needs nothing.
 
 ## Development
 
