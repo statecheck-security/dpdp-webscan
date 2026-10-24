@@ -10,7 +10,7 @@
  */
 
 import { chromium } from 'playwright';
-import type { Browser, BrowserContext, Page, Request } from 'playwright';
+import type { Browser, BrowserContext, Frame, Page, Request } from 'playwright';
 import { allowedAddress, startEgressProxy } from './egress.js';
 import type { BlockedRequest, Dial } from './egress.js';
 import type { Lookup } from './guard.js';
@@ -195,6 +195,19 @@ export async function loadPage(
 
 function isTimeout(err: unknown): boolean {
   return err instanceof Error && err.name === 'TimeoutError';
+}
+
+/**
+ * Run `fn(arg)` inside a page or frame. Use this, not `evaluate(fn, arg)`, for any in-page function
+ * with named inner functions: tsx (the CLI) compiles with esbuild's keepNames, which wraps them in a
+ * `__name` helper that exists in Node but not in the page, so the call throws there ("__name is not
+ * defined") while vitest, which does not add it, passes. Found 2026-10-25 (WS-4b): until then the
+ * capture's storage read failed quietly in every CLI scan. `arg` must be JSON.
+ */
+export function evaluateIn<A, R>(target: Page | Frame, fn: (arg: A) => R, arg: A): Promise<Awaited<R>> {
+  return target.evaluate<Awaited<R>>(
+    `(() => { const __name = (f) => f; return (${fn.toString()})(${JSON.stringify(arg)}); })()`,
+  );
 }
 
 /** Resolve with the promise, or call `onTimeout` and resolve with its value after `ms`. */
