@@ -11,7 +11,7 @@
  */
 
 import type { BrowserContext, Request } from 'playwright';
-import { withTimeout } from './browser.js';
+import { evaluateIn, withTimeout } from './browser.js';
 import type { BlockedRequest } from './egress.js';
 import { registrableDomain } from './pages.js';
 
@@ -166,34 +166,33 @@ export function attachCapture(context: BrowserContext, opts: CaptureOptions): Ca
     const frames = context.pages().flatMap((page) => page.frames());
     const reads = frames.map((frame) =>
       withTimeout(
-        frame
-          .evaluate(
-            ({ maxKeys, maxLength }) => {
-              // Runs in the page: only key names are returned, never values.
-              const keysOf = (store: Storage): string[] => {
-                const keys: string[] = [];
-                for (let i = 0; i < store.length && keys.length < maxKeys; i += 1) {
-                  const key = store.key(i);
-                  if (key !== null) keys.push(key.slice(0, maxLength));
-                }
-                return keys;
-              };
-              const read = (get: () => Storage): string[] => {
-                try {
-                  return keysOf(get());
-                } catch {
-                  return [];
-                }
-              };
-              return {
-                origin: location.origin,
-                localStorage: read(() => window.localStorage),
-                sessionStorage: read(() => window.sessionStorage),
-              };
-            },
-            { maxKeys: MAX_KEYS_PER_STORE, maxLength: MAX_KEY_LENGTH },
-          )
-          .catch(() => undefined),
+        evaluateIn(
+          frame,
+          ({ maxKeys, maxLength }: { maxKeys: number; maxLength: number }): FrameStorage => {
+            // Runs in the page: only key names are returned, never values.
+            const keysOf = (store: Storage): string[] => {
+              const keys: string[] = [];
+              for (let i = 0; i < store.length && keys.length < maxKeys; i += 1) {
+                const key = store.key(i);
+                if (key !== null) keys.push(key.slice(0, maxLength));
+              }
+              return keys;
+            };
+            const read = (get: () => Storage): string[] => {
+              try {
+                return keysOf(get());
+              } catch {
+                return [];
+              }
+            };
+            return {
+              origin: location.origin,
+              localStorage: read(() => window.localStorage),
+              sessionStorage: read(() => window.sessionStorage),
+            };
+          },
+          { maxKeys: MAX_KEYS_PER_STORE, maxLength: MAX_KEY_LENGTH },
+        ).catch(() => undefined),
         STORAGE_READ_TIMEOUT_MS,
         () => undefined,
       ),

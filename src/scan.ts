@@ -19,7 +19,7 @@
 
 import type { Browser, BrowserContext, Page } from 'playwright';
 import * as banner from './banner.js';
-import type { BannerInfo, ClickBanner, FindBanner, FindPersistentControl } from './banner.js';
+import type { BannerInfo, ClickBanner, ClickOutcome, FindBanner, FindPersistentControl } from './banner.js';
 import { killBrowser, launchBrowser, loadPage, newHardenedContext, PAGE_TIMEOUT_MS, withTimeout } from './browser.js';
 import type { BlockedRequest, HardenedContextOptions, LoadOutcome } from './browser.js';
 import { attachCapture } from './capture.js';
@@ -79,6 +79,8 @@ export interface ScanOptions {
   signal?: AbortSignal;
   /** Defaults to SCAN_TIMEOUT_MS. Tests shorten it. */
   scanTimeoutMs?: number;
+  /** Defaults to AFTER_CLICK_MS. Tests shorten it: fixture banners fire at once. */
+  afterClickMs?: number;
   /** Tests: fixture routing and a fake dial for every context (test/fixtures.ts). */
   contextOptions?: Pick<HardenedContextOptions, 'install' | 'dial'>;
   /** Tests: replace per-page inspectors (e.g. a fake banner before WS-4b exists). */
@@ -98,6 +100,8 @@ export interface ScanCollection {
   afterReject?: CaptureSnapshot;
   afterAccept?: CaptureSnapshot;
   banner?: BannerInfo;
+  /** Clicks the reject run needed (2 when reject sat behind a settings layer). */
+  rejectClicks?: number;
   persistentControlFoundOn: string[];
   forms: FormInfo[];
   texts: Map<string, PageText>;
@@ -235,8 +239,14 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
     }
   }
 
-  /** Step 2: a fresh context, the same page, one banner click, and what fired after it. */
-  async function interaction(label: SnapshotLabel, click: ClickBanner): Promise<CaptureSnapshot | undefined> {
+  /**
+   * Step 2: a fresh context, the same page, one banner choice, and what fired after it. A banner
+   * without that control (no reject anywhere, say) is a finding for the checks, not a partial scan.
+   */
+  async function interaction(
+    label: SnapshotLabel,
+    click: ClickBanner,
+  ): Promise<{ snapshot: CaptureSnapshot; clicks: number } | undefined> {
     const timeoutMs = budget();
     if (timeoutMs <= 0) {
       reasons.add('scan-timeout');
@@ -251,15 +261,16 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
       }
       const found = await guarded('banner', () => inspect.findBanner(run.page), undefined);
       const mark = found ? await run.capture.mark() : undefined;
-      const clicked = found ? await guarded(label, () => click(run.page, found), false) : false;
-      if (!found || !mark || !clicked) {
-        // Seen on the baseline load but not found or clickable this time.
-        reasons.add('banner-not-found');
+      const failed: ClickOutcome = { clicked: false, reason: 'failed' };
+      const choice = found ? await guarded(label, () => click(run.page, found), failed) : failed;
+      if (!found || !mark || !choice.clicked) {
+        // Seen on the baseline load but not found or clickable this time (a missing control is not that).
+        if (!choice.clicked && choice.reason === 'failed') reasons.add('banner-not-found');
         return undefined;
       }
-      const waitMs = Math.min(AFTER_CLICK_MS, budget());
+      const waitMs = Math.min(opts.afterClickMs ?? AFTER_CLICK_MS, budget());
       if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
-      return await run.capture.snapshot(label, mark);
+      return { snapshot: await run.capture.snapshot(label, mark), clicks: choice.clicks };
     } finally {
       run.capture.detach();
       await run.context.close().catch(() => undefined);
@@ -284,9 +295,12 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
     // Step 2: reject, then accept, each in its own fresh context.
     if (collection.banner) {
       const afterReject = await interaction('after-reject', inspect.clickReject);
-      if (afterReject) collection.afterReject = afterReject;
+      if (afterReject) {
+        collection.afterReject = afterReject.snapshot;
+        collection.rejectClicks = afterReject.clicks;
+      }
       const afterAccept = await interaction('after-accept', inspect.clickAccept);
-      if (afterAccept) collection.afterAccept = afterAccept;
+      if (afterAccept) collection.afterAccept = afterAccept.snapshot;
     }
 
     // Step 3: extra pages, in the baseline context (no clicks happen there).
@@ -322,6 +336,7 @@ function checkContext(collection: ScanCollection, trackers: TrackerLookup): Chec
     ...(collection.afterReject ? { afterReject: collection.afterReject } : {}),
     ...(collection.afterAccept ? { afterAccept: collection.afterAccept } : {}),
     ...(collection.banner ? { banner: collection.banner } : {}),
+    ...(collection.rejectClicks !== undefined ? { rejectClicks: collection.rejectClicks } : {}),
     persistentControlFoundOn: collection.persistentControlFoundOn,
     forms: collection.forms,
     texts: collection.texts,

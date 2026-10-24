@@ -1,0 +1,24 @@
+<!-- Exercises: W7 (no persistent way to change consent later). The banner offers reject next to accept and nothing fires either way, so W7 is the only finding. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>No settings link</title>
+  </head>
+  <body>
+    <section id="consent" aria-label="Consent" style="position: sticky; bottom: 0">
+      <p>We would like to use analytics cookies. Do you agree?</p>
+      <button type="button" id="no">Decline</button>
+      <button type="button" id="yes">Accept</button>
+    </section>
+    <main><p>An ordinary page.</p></main>
+    <footer><a href="/cookies">Cookie Policy</a></footer>
+    <script>
+      for (const id of ['no', 'yes']) {
+        document.getElementById(id).addEventListener('click', () => {
+          document.getElementById('consent').hidden = true;
+        });
+      }
+    </script>
+  </body>
+</html>

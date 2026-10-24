@@ -1,7 +1,7 @@
 // WS-3b: hardened context, route guard and egress proxy, against local fixtures only.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Browser } from 'playwright';
-import { killBrowser, launchBrowser, loadPage, newHardenedContext, UA_SUFFIX } from '../src/browser.js';
+import { evaluateIn, killBrowser, launchBrowser, loadPage, newHardenedContext, UA_SUFFIX } from '../src/browser.js';
 import type { HardenedContextOptions } from '../src/browser.js';
 import { silentLog } from '../src/log.js';
 import { fixtureContextOptions, noNetworkDial, serveFixtureHttp, SITE } from './fixtures.js';
@@ -128,5 +128,19 @@ describe('loadPage', () => {
     const { context, page, blocked } = await open('redirect-chain');
     expect(await loadPage(page, SITE, { blocked })).toEqual({ status: 'loaded', httpStatus: 200, settled: true });
     await context.close();
+  });
+});
+
+describe('evaluateIn', () => {
+  it('runs a function compiled with keepNames, which page.evaluate cannot (tsx, 2026-10-25)', async () => {
+    const page = await browser.newPage();
+    // What esbuild's keepNames emits for a named inner function; vitest does not add it, tsx does.
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    const fn = new Function('n', 'const inner = __name((x) => x + 1, "inner"); return inner(n);') as (
+      n: number,
+    ) => number;
+    await expect(page.evaluate(fn, 1)).rejects.toThrow(/__name is not defined/);
+    expect(await evaluateIn(page, fn, 1)).toBe(2);
+    await page.close();
   });
 });
