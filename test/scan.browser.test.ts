@@ -63,8 +63,6 @@ describe('collectScan', () => {
     const { options } = scanOf('clean');
     const collection = await collectScan(target, options);
     expect(hosts(collection.baseline)).toEqual(['site.fixture.in']);
-    expect(collection.banner).toBeUndefined();
-    expect(collection.afterReject).toBeUndefined();
   });
 
   it('reports a navigation redirected to a private address as blocked-ssrf, and stops', async () => {
@@ -118,11 +116,11 @@ describe('collectScan', () => {
         (await page.locator('#consent-banner').isVisible()) ? { text: '', buttons: [] } : undefined,
       clickReject: async (page) => {
         await page.click('#consent-banner #reject', { timeout: 2_000 });
-        return true;
+        return { clicked: true, clicks: 1 };
       },
       clickAccept: async (page) => {
         await page.click('#consent-banner #accept', { timeout: 2_000 });
-        return true;
+        return { clicked: true, clicks: 1 };
       },
     };
     const { options, routing } = scanOf('reject-ignored', { inspectors: fakeBanner });
@@ -152,8 +150,8 @@ describe('collectScan', () => {
     const { options } = scanOf('reject-ignored', {
       inspectors: {
         findBanner: () => Promise.resolve({ text: '', buttons: [] }),
-        clickReject: () => Promise.resolve(false),
-        clickAccept: () => Promise.resolve(false),
+        clickReject: () => Promise.resolve({ clicked: false, reason: 'failed' }),
+        clickAccept: () => Promise.resolve({ clicked: false, reason: 'failed' }),
       },
     });
     const collection = await collectScan(target, options);

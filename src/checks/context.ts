@@ -24,6 +24,8 @@ export interface CheckContext {
   afterReject?: CaptureSnapshot;
   afterAccept?: CaptureSnapshot;
   banner?: BannerInfo;
+  /** Clicks the reject run needed; undefined when no reject (or save) control was reached. */
+  rejectClicks?: number;
   /** Page URLs with a persistent consent-settings control. */
   persistentControlFoundOn: string[];
   /** Forms on all scanned pages. */

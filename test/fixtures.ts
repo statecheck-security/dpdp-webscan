@@ -189,6 +189,8 @@ export function fixtureScanOptions(
       log: silentLog,
       contextOptions: { install: routing.install, dial: noNetworkDial() },
       trackers: fixtureTrackers,
+      // Fixture banners fire their requests as soon as they are clicked.
+      afterClickMs: 500,
       ...extra,
     },
   };
