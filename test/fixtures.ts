@@ -14,6 +14,8 @@ import type { AddressInfo } from 'node:net';
 import { extname, join, resolve, sep } from 'node:path';
 import type { Browser, BrowserContext } from 'playwright';
 import type { HardenedContextOptions } from '../src/browser.js';
+import type { TrackerLookup } from '../src/checks/context.js';
+import { categorise } from '../src/data/trackers.js';
 import type { Dial } from '../src/egress.js';
 import type { Lookup } from '../src/guard.js';
 import { silentLog } from '../src/log.js';
@@ -41,6 +43,21 @@ export function isFixtureHost(hostname: string): boolean {
     host.endsWith('.fixture.in') || THIRD_PARTY_DOMAINS.some((domain) => host === domain || host.endsWith(`.${domain}`))
   );
 }
+
+/**
+ * The real tracker list plus the fake vendors (WS-4a). Fixture hosts stay out of src/data/trackers.ts,
+ * so no test data ships in production (same reasoning as decision 14).
+ */
+const FIXTURE_TRACKERS: Record<string, ReturnType<TrackerLookup>> = {
+  'tracker-fixture.in': { vendor: 'Tracker Fixture', category: 'analytics' },
+  'replay-fixture.in': { vendor: 'Replay Fixture', category: 'session-replay', sessionReplay: true },
+  'cmp-fixture.in': { vendor: 'CMP Fixture', category: 'cmp' },
+};
+
+export const fixtureTrackers: TrackerLookup = (host) => {
+  const domain = Object.keys(FIXTURE_TRACKERS).find((d) => host === d || host.endsWith(`.${d}`));
+  return domain ? FIXTURE_TRACKERS[domain] : categorise(host);
+};
 
 export const fakeLookup: Lookup = async (hostname) => {
   const host = hostname.toLowerCase();
@@ -171,6 +188,7 @@ export function fixtureScanOptions(
       browser,
       log: silentLog,
       contextOptions: { install: routing.install, dial: noNetworkDial() },
+      trackers: fixtureTrackers,
       ...extra,
     },
   };

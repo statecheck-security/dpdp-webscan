@@ -181,3 +181,26 @@ describe('collectScan', () => {
     expect(result.pages[0]?.reason).toBe('requested');
   });
 });
+
+// WS-4a: the capture feeds W1 and W2 on a real page load.
+describe('checks on fixtures', () => {
+  it('reports W1 and W2 on trackers-before-consent, with names and hosts but no values', async () => {
+    const { options } = scanOf('trackers-before-consent');
+    const result = await runScan(target, options);
+    expect(result.findings.map((f) => f.id)).toEqual(['W1', 'W2']);
+    const [w1, w2] = result.findings;
+    expect(w1?.evidence.thirdParties?.map((t) => [t.host, t.vendor, t.category])).toEqual([
+      ['tracker-fixture.in', 'Tracker Fixture', 'analytics'],
+    ]);
+    expect(w2?.evidence.identifiers?.map((i) => `${i.store} ${i.domain} ${i.name}`)).toEqual(
+      expect.arrayContaining([
+        'cookie site.fixture.in site_session',
+        'cookie site.fixture.in _tid',
+        'cookie tracker-fixture.in tp_id',
+        'localStorage site.fixture.in site_pref',
+        'sessionStorage site.fixture.in site_tab',
+      ]),
+    );
+    expect(JSON.stringify(result)).not.toContain('SECRET-VALUE-DO-NOT-RECORD');
+  });
+});

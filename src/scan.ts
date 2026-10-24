@@ -24,8 +24,9 @@ import { killBrowser, launchBrowser, loadPage, newHardenedContext, PAGE_TIMEOUT_
 import type { BlockedRequest, HardenedContextOptions, LoadOutcome } from './browser.js';
 import { attachCapture } from './capture.js';
 import type { CaptureSnapshot, SnapshotLabel } from './capture.js';
-import type { CheckContext } from './checks/context.js';
+import type { CheckContext, TrackerLookup } from './checks/context.js';
 import { runChecks } from './checks/index.js';
+import { categorise } from './data/trackers.js';
 import { inspectForms } from './forms.js';
 import type { FormInfo, InspectForms } from './forms.js';
 import { parseTarget } from './guard.js';
@@ -82,6 +83,8 @@ export interface ScanOptions {
   contextOptions?: Pick<HardenedContextOptions, 'install' | 'dial'>;
   /** Tests: replace per-page inspectors (e.g. a fake banner before WS-4b exists). */
   inspectors?: Partial<PageInspectors>;
+  /** Tests: categorise the fixture hosts. Defaults to the hand-kept list (src/data/trackers.ts). */
+  trackers?: TrackerLookup;
 }
 
 /** Everything a scan saw, before checks run. */
@@ -310,10 +313,7 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
   }
 }
 
-/** Until WS-4a adds src/data/trackers.ts, no host is a known tracker. */
-const noTrackers: CheckContext['trackers'] = () => undefined;
-
-function checkContext(collection: ScanCollection): CheckContext {
+function checkContext(collection: ScanCollection, trackers: TrackerLookup): CheckContext {
   return {
     target: collection.target,
     registrableDomain: collection.registrableDomain,
@@ -325,7 +325,7 @@ function checkContext(collection: ScanCollection): CheckContext {
     persistentControlFoundOn: collection.persistentControlFoundOn,
     forms: collection.forms,
     texts: collection.texts,
-    trackers: noTrackers,
+    trackers,
   };
 }
 
@@ -338,7 +338,7 @@ export async function runScan(target: URL, opts: ScanOptions = {}): Promise<Scan
     finishedAt: now(),
     pages: collection.pages,
     partialReasons: collection.partialReasons,
-    findings: runChecks(checkContext(collection)),
+    findings: runChecks(checkContext(collection, opts.trackers ?? categorise)),
     info: [],
   });
 }
