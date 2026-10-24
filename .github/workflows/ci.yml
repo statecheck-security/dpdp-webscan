@@ -54,3 +54,13 @@ jobs:
           name: test-results
           path: test-results/
           if-no-files-found: ignore
+
+  # WS-3f: build the scan image and run the egress self-test (blocked ranges
+  # rejected, rules locked, loopback working). Makes no request to a public
+  # site and never scans anything.
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose -f docker/compose.yml run --build --rm selftest
