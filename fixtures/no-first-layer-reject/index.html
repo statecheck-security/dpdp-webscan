@@ -1,0 +1,45 @@
+<!-- Exercises: W4 (accept on the first layer, reject only behind "Cookie Settings") and CMP detection (OneTrust-style ids; markup written for this fixture). Reject sits in the preferences layer, a sibling of the banner inside the CMP container, so the reject run needs 2 clicks. Rejecting stores only the consent-state cookie; a footer "Cookie settings" link is the persistent control, so W3 and W7 stay quiet. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>No first-layer reject</title>
+  </head>
+  <body>
+    <div id="onetrust-consent-sdk">
+      <div id="onetrust-banner-sdk" role="region" aria-label="Cookie banner" style="position: fixed; bottom: 0">
+        <p>We use cookies to personalise content and ads, and to analyse our traffic.</p>
+        <button type="button" id="onetrust-pc-btn-handler">Cookie Settings</button>
+        <button type="button" id="onetrust-accept-btn-handler">Accept All Cookies</button>
+      </div>
+      <div id="onetrust-pc-sdk" role="dialog" aria-label="Privacy preference center" hidden>
+        <p>Manage consent preferences</p>
+        <label><input type="checkbox" checked disabled /> Strictly necessary cookies</label>
+        <label><input type="checkbox" /> Performance cookies</label>
+        <button type="button" id="pc-reject">Reject All</button>
+        <button type="button" id="pc-save">Confirm My Choices</button>
+      </div>
+    </div>
+    <main><p>An ordinary page.</p></main>
+    <footer><a href="#" class="ot-sdk-show-settings">Cookie settings</a></footer>
+    <script>
+      const banner = document.getElementById('onetrust-banner-sdk');
+      const pc = document.getElementById('onetrust-pc-sdk');
+      const choose = (value) => {
+        banner.hidden = true;
+        pc.hidden = true;
+        document.cookie = 'OptanonConsent=' + value + '; path=/; max-age=3600';
+      };
+      document.getElementById('onetrust-pc-btn-handler').addEventListener('click', () => {
+        banner.hidden = true;
+        pc.hidden = false;
+      });
+      document.getElementById('pc-reject').addEventListener('click', () => choose('rejected'));
+      document.getElementById('pc-save').addEventListener('click', () => choose('saved'));
+      document.getElementById('onetrust-accept-btn-handler').addEventListener('click', () => {
+        choose('accepted');
+        new Image().src = 'https://tracker-fixture.in/pixel.gif?choice=accept';
+      });
+    </script>
+  </body>
+</html>

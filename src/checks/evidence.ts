@@ -1,6 +1,6 @@
 /**
  * Turns a CaptureSnapshot into finding evidence (WS-4a). Shared by the
- * checks that report hosts or identifiers (W1, W2, later W3), so they all
+ * checks that report hosts or identifiers (W1, W2, W3), so they all
  * group, label and order evidence the same way. Pure: no Playwright.
  */
 

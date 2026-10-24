@@ -1,4 +1,5 @@
 // Hand-built CheckContexts for the pure check tests (plan section 10): no browser, milliseconds per test.
+import type { BannerButton, BannerInfo, ButtonRole } from '../../src/banner.js';
 import type { CaptureSnapshot, CapturedCookie, CapturedStorage, RequestCount } from '../../src/capture.js';
 import type { CheckContext } from '../../src/checks/context.js';
 import { categorise } from '../../src/data/trackers.js';
@@ -61,4 +62,12 @@ export function context(parts: Partial<CheckContext> = {}): CheckContext {
     trackers: categorise,
     ...parts,
   };
+}
+
+export function button(role: ButtonRole, label: string = role, clicksFromFirstLayer = 1): BannerButton {
+  return { label, role, visible: true, clicksFromFirstLayer, ref: `b-${label}` };
+}
+
+export function banner(buttons: BannerButton[], text = 'We use cookies.', vendor?: string): BannerInfo {
+  return { text, buttons, ...(vendor ? { vendor } : {}) };
 }

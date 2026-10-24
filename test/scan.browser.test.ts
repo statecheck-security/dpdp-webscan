@@ -202,3 +202,62 @@ describe('checks on fixtures', () => {
     expect(JSON.stringify(result)).not.toContain('SECRET-VALUE-DO-NOT-RECORD');
   });
 });
+
+// WS-4b: the real banner inspectors on fixtures, reject and accept runs included.
+describe('banner checks on fixtures', () => {
+  const ids = (result: { findings: { id: string }[] }) => result.findings.map((f) => f.id);
+
+  it('finds nothing on clean, with its banner clicked both ways', async () => {
+    const { options } = scanOf('clean');
+    const collection = await collectScan(target, options);
+    expect(collection.banner?.buttons.map((b) => b.role)).toEqual(['reject', 'accept']);
+    expect(collection.afterReject).toBeDefined();
+    expect(collection.afterAccept).toBeDefined();
+    expect(collection.rejectClicks).toBe(1);
+    expect(collection.persistentControlFoundOn).toContain(SITE);
+    expect(collection.partialReasons).toEqual([]);
+  });
+
+  it('reports W3 when reject still fires a tracker and sets a cookie', async () => {
+    const result = await runScan(target, scanOf('reject-ignored').options);
+    expect(ids(result)).toEqual(['W3', 'W7']);
+    expect(result.findings[0]?.evidence).toEqual({
+      thirdParties: [
+        { host: 'tracker-fixture.in', vendor: 'Tracker Fixture', category: 'analytics', pageUrl: SITE, count: 1 },
+      ],
+      identifiers: [
+        {
+          name: 'trk_after_reject',
+          domain: 'site.fixture.in',
+          store: 'cookie',
+          firstParty: true,
+          expiresInSeconds: expect.any(Number) as number,
+        },
+      ],
+    });
+    expect(result.partial).toBe(false);
+  });
+
+  it('reports W4 with the extra click when reject sits behind cookie settings', async () => {
+    const { options } = scanOf('no-first-layer-reject');
+    const result = await runScan(target, options);
+    expect(ids(result)).toEqual(['W4']);
+    expect(result.findings[0]?.evidence).toEqual({ clicksToReject: 2, bannerVendor: 'OneTrust' });
+    expect(result.partial).toBe(false);
+  });
+
+  it('reports W5 with the quoted sentence, plus W4 and W7, and is not partial without a reject control', async () => {
+    const result = await runScan(target, scanOf('continue-means-consent').options);
+    expect(ids(result)).toEqual(['W4', 'W5', 'W7']);
+    expect(result.findings.find((f) => f.id === 'W5')?.evidence).toEqual({
+      quote: 'By continuing to browse this site, you agree to our use of cookies.',
+    });
+    expect(result.partialReasons).toEqual([]);
+  });
+
+  it('reports only W7 when nothing offers a later change of mind', async () => {
+    const result = await runScan(target, scanOf('no-settings-link').options);
+    expect(ids(result)).toEqual(['W7']);
+    expect(result.findings[0]?.evidence.pagesSearched?.[0]).toBe(SITE);
+  });
+});

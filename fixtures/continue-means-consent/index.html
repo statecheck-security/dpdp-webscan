@@ -1,0 +1,23 @@
+<!-- Exercises: W5 (consent inferred from browsing), plus W4 (only "Got it", no reject) and W7 (no persistent settings control). A generic fixed banner, no known CMP. Nothing fires before or after the click. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Continue means consent</title>
+  </head>
+  <body>
+    <div class="cookie-notice" style="position: fixed; top: 0; left: 0; right: 0">
+      <p>
+        This website uses cookies. By continuing to browse this site, you agree to our use of cookies. Read our
+        <a href="/cookies">cookie policy</a>.
+      </p>
+      <button type="button" id="ok">Got it</button>
+    </div>
+    <main><p>An ordinary page.</p></main>
+    <script>
+      document.getElementById('ok').addEventListener('click', () => {
+        document.querySelector('.cookie-notice').hidden = true;
+      });
+    </script>
+  </body>
+</html>
