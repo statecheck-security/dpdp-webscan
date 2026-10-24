@@ -1,0 +1,35 @@
+# Egress-restricted scan container (WS-3f). Paths are relative to this file.
+#   npm run scan:docker -- <url>                                   # one scan
+#   docker compose -f docker/compose.yml run --rm --build selftest # egress self-test
+name: dpdp-webscan
+
+x-hardening: &hardening
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile
+  # egress.sh needs NET_ADMIN to install the rules; it drops every capability
+  # (bounding set included) before running the command.
+  cap_add: [NET_ADMIN]
+  mem_limit: 2g
+  pids_limit: 512
+  read_only: true
+  tmpfs:
+    - /tmp:size=512m
+    - /run:size=8m
+  # Chromium is launched with --disable-dev-shm-usage, so /dev/shm stays small.
+  # Public resolvers for Docker's embedded DNS (127.0.0.11) to forward to: on
+  # Docker Desktop the default upstream is a private address, which the egress
+  # rules reject.
+  dns: [1.1.1.1, 8.8.8.8]
+  # No env_file: the scan needs no secrets (scan:send runs on the host).
+
+services:
+  scan:
+    <<: *hardening
+    entrypoint: ['/app/docker/egress.sh', 'node', '--import', 'tsx', 'src/cli.ts']
+    volumes:
+      - ../results:/app/results
+
+  selftest:
+    <<: *hardening
+    command: ['/app/docker/selftest.sh']

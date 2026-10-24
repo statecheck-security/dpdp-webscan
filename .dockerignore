@@ -1,0 +1,8 @@
+# Keep the build context small and free of secrets and scan output (WS-3f).
+**
+!package.json
+!package-lock.json
+!tsconfig.json
+!src/**
+!docker/egress.sh
+!docker/selftest.sh

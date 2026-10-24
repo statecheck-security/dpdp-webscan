@@ -9,6 +9,8 @@
   },
   "scripts": {
     "scan": "tsx src/cli.ts",
+    "scan:docker": "docker compose -f docker/compose.yml run --build --rm scan",
+    "scan:docker:selftest": "docker compose -f docker/compose.yml run --build --rm selftest",
     "scan:send": "tsx src/send.ts",
     "browsers": "playwright install chromium",
     "typecheck": "tsc --noEmit",
