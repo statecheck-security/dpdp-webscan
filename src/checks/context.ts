@@ -6,12 +6,12 @@
 import type { BannerInfo } from '../banner.js';
 import type { CaptureSnapshot } from '../capture.js';
 import type { FormInfo } from '../forms.js';
+import type { TrackerMatch } from '../data/trackers.js';
 import type { PageText } from '../text.js';
-import type { PageVisit, TrackerCategory } from '../types.js';
+import type { PageVisit } from '../types.js';
 
-export type TrackerLookup = (
-  host: string,
-) => { vendor: string; category: TrackerCategory; sessionReplay?: true } | undefined;
+/** `categorise` from src/data/trackers.ts in production; tests add the fixture hosts. */
+export type TrackerLookup = (host: string) => TrackerMatch | undefined;
 
 export interface CheckContext {
   target: URL;
