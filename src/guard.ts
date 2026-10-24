@@ -30,8 +30,9 @@ const blocked6 = new BlockList();
 
 // IPv4: this-network, private, CGNAT, loopback, link-local (incl. cloud metadata
 // 169.254.169.254), IETF protocol assignments, documentation, 6to4 relay,
-// benchmarking, multicast, reserved, broadcast.
-for (const [net, prefix] of [
+// benchmarking, multicast, reserved, broadcast. Exported so test/egress.test.ts
+// can check that docker/egress.sh rejects every one of them (WS-3f).
+export const BLOCKED_IPV4 = [
   ['0.0.0.0', 8],
   ['10.0.0.0', 8],
   ['100.64.0.0', 10],
@@ -47,14 +48,15 @@ for (const [net, prefix] of [
   ['203.0.113.0', 24],
   ['224.0.0.0', 4],
   ['240.0.0.0', 4],
-] as const) {
+] as const;
+for (const [net, prefix] of BLOCKED_IPV4) {
   blocked4.addSubnet(net, prefix, 'ipv4');
 }
 
 // IPv6: unspecified, loopback, IPv4-mapped, NAT64 and 6to4 and Teredo (all embed
 // IPv4 we'd otherwise have to unpack), discard, documentation, ULA, link-local,
 // multicast. Public sites don't publish these in AAAA records.
-for (const [net, prefix] of [
+export const BLOCKED_IPV6 = [
   ['::', 128],
   ['::1', 128],
   ['::ffff:0:0', 96],
@@ -67,7 +69,8 @@ for (const [net, prefix] of [
   ['fc00::', 7],
   ['fe80::', 10],
   ['ff00::', 8],
-] as const) {
+] as const;
+for (const [net, prefix] of BLOCKED_IPV6) {
   blocked6.addSubnet(net, prefix, 'ipv6');
 }
 
