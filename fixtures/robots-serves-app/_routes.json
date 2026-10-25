@@ -1,0 +1,7 @@
+{
+  "site.fixture.in/robots.txt": {
+    "status": 200,
+    "headers": { "content-type": "text/html; charset=utf-8" },
+    "body": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>App</title></head><body><img src=\"https://tracker-fixture.in/pixel.gif\" alt=\"\"><script>fetch('https://tracker-fixture.in/pixel.gif?from=robots').catch(() => undefined);</script></body></html>"
+  }
+}

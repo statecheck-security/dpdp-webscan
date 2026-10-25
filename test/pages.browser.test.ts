@@ -67,3 +67,20 @@ describe('contextRobotsFetcher', () => {
     await context.close();
   });
 });
+
+describe('contextRobotsFetcher on an app served at /robots.txt', () => {
+  it('loads only the document, hands the page to exclude, and finds no rules', async () => {
+    const { context, blocked, routing } = await open('robots-serves-app');
+    const seen: string[] = [];
+    context.on('requestfinished', (request) => seen.push(new URL(request.url()).hostname));
+    let excluded = 0;
+    const fetched = await contextRobotsFetcher(context, { blocked, exclude: () => (excluded += 1) })(
+      'https://site.fixture.in',
+    );
+    expect(fetched).toEqual({ status: 'absent' });
+    expect(excluded).toBe(1);
+    expect(seen).toEqual(['site.fixture.in']);
+    expect(routing.unrouted).toEqual([]);
+    await context.close();
+  });
+});

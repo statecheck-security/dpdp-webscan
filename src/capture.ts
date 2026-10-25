@@ -10,7 +10,7 @@
  * sentinel value and checks it never appears in a snapshot.
  */
 
-import type { BrowserContext, Request } from 'playwright';
+import type { BrowserContext, Page, Request } from 'playwright';
 import { evaluateIn, withTimeout } from './browser.js';
 import type { BlockedRequest } from './egress.js';
 import { registrableDomain } from './pages.js';
@@ -83,6 +83,8 @@ export interface Capture {
    * are classified against it too.
    */
   rebase: (registrableDomain: string) => void;
+  /** Leave out every request a page makes, e.g. the robots.txt fetch page (src/pages.ts), which is not a scanned page. */
+  exclude: (page: Page) => void;
   detach: () => void;
 }
 
@@ -113,6 +115,15 @@ function pageOf(request: Request): string | undefined {
   }
 }
 
+function isFromExcluded(request: Request, excluded: WeakSet<Page>): boolean {
+  try {
+    return excluded.has(request.frame().page());
+  } catch {
+    // No frame (service worker): not from an excluded page.
+    return false;
+  }
+}
+
 function cookieKey(name: string, domain: string): string {
   return `cookie ${domain} ${name}`;
 }
@@ -132,8 +143,10 @@ export function attachCapture(context: BrowserContext, opts: CaptureOptions): Ca
   let siteDomain = opts.registrableDomain;
   const requests: Omit<CapturedRequest, 'isThirdParty'>[] = [];
   let dropped = 0;
+  const excluded = new WeakSet<Page>();
 
   const onRequest = (request: Request): void => {
+    if (isFromExcluded(request, excluded)) return;
     let url: URL;
     try {
       url = new URL(request.url());
@@ -275,6 +288,10 @@ export function attachCapture(context: BrowserContext, opts: CaptureOptions): Ca
 
     rebase(domain) {
       siteDomain = domain;
+    },
+
+    exclude(page) {
+      excluded.add(page);
     },
 
     detach() {
