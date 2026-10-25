@@ -31,5 +31,6 @@ Local static pages the engine is tested against (plan WS-8). `test/fixtures.ts` 
 | `download/`                                       | Downloads refused                                                                                                                                          |
 | `robots-disallow/`                                | robots.txt honoured for extra pages, `skipped-robots` status                                                                                               |
 | `bot-wall/`                                       | 403 with a challenge marker → `blocked-bot-wall`, partial                                                                                                  |
+| `storage-key-email/`                              | Exit-side redaction: a storage key named with an email address makes `runScan` throw `RedactionError` instead of returning the result                      |
 
 **Rules.** No real personal data: `example.in` addresses and obviously fake names only. Redaction fixtures carry the sentinel `SECRET-VALUE-DO-NOT-RECORD` in a cookie value, a form value and page text, and tests assert it never appears in a result. Never copy markup from a real site.
