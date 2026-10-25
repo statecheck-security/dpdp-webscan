@@ -75,6 +75,19 @@ describe('pickPages', () => {
     ]);
   });
 
+  it('keeps pages a front controller picks by query (WordPress plain permalinks)', () => {
+    const wp = new URL('https://shop.in/');
+    const links = [
+      link('https://shop.in/?page_id=3', 'Privacy Policy'),
+      link('https://shop.in/?page_id=7', 'Contact'),
+      link('https://shop.in/?utm_source=nav', 'Home'),
+    ];
+    expect(pickPages(links, wp)).toEqual([
+      { url: 'https://shop.in/?page_id=3', reason: 'privacy' },
+      { url: 'https://shop.in/?page_id=7', reason: 'contact' },
+    ]);
+  });
+
   it('fills a free slot with terms when a kind is missing', () => {
     const links = [
       link('https://www.example.co.in/privacy', 'Privacy'),

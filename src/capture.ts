@@ -14,6 +14,7 @@ import type { BrowserContext, Request } from 'playwright';
 import { evaluateIn, withTimeout } from './browser.js';
 import type { BlockedRequest } from './egress.js';
 import { registrableDomain } from './pages.js';
+import { pageUrlOfString } from './urls.js';
 
 /** Bounds on what one context can make us hold in memory. */
 const MAX_REQUESTS = 10_000;
@@ -26,7 +27,7 @@ export type SnapshotLabel = 'baseline' | 'after-reject' | 'after-accept' | 'all-
 
 export interface CapturedRequest {
   host: string;
-  /** Top-level page the request was made from: origin and path, no query or hash. */
+  /** Top-level page the request was made from, recorded like every page URL (src/urls.ts). */
   pageUrl: string;
   resourceType: string;
   isThirdParty: boolean;
@@ -96,24 +97,16 @@ export function isThirdParty(host: string, siteDomain: string): boolean {
   return registrableDomain(host) !== siteDomain;
 }
 
-/** Origin plus path, so query strings and fragments (which can carry identifiers) are never kept. */
-function pageAddress(url: string): string | undefined {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return undefined;
-    return `${parsed.origin}${parsed.pathname}`;
-  } catch {
-    return undefined;
-  }
-}
-
-/** The top-level page a request belongs to. A main-frame navigation belongs to the page it loads. */
+/**
+ * The top-level page a request belongs to, recorded like every page URL (src/urls.ts: no fragment, no
+ * identifier-carrying query). A main-frame navigation belongs to the page it loads.
+ */
 function pageOf(request: Request): string | undefined {
   try {
     const frame = request.frame();
     const page = frame.page();
-    if (request.isNavigationRequest() && frame === page.mainFrame()) return pageAddress(request.url());
-    return pageAddress(page.url());
+    if (request.isNavigationRequest() && frame === page.mainFrame()) return pageUrlOfString(request.url());
+    return pageUrlOfString(page.url());
   } catch {
     // Service-worker requests have no frame; workers are blocked, so this is rare.
     return undefined;
@@ -203,7 +196,7 @@ export function attachCapture(context: BrowserContext, opts: CaptureOptions): Ca
       ),
     );
     return (await Promise.all(reads)).filter(
-      (s): s is FrameStorage => s !== undefined && s.origin !== 'null' && pageAddress(s.origin) !== undefined,
+      (s): s is FrameStorage => s !== undefined && s.origin !== 'null' && pageUrlOfString(s.origin) !== undefined,
     );
   }
 

@@ -12,6 +12,7 @@
 import { CATALOGUE_VERSION, CHECK_IDS, INFO_IDS } from './checks.js';
 import { ENGINE_VERSION, PARTIAL_REASONS } from './types.js';
 import type { Finding, Info, PageVisit, PartialReason, ScanResult } from './types.js';
+import { VALUE_TOKEN } from './urls.js';
 
 export interface ResultParts {
   target: URL;
@@ -42,8 +43,6 @@ export function buildResult(parts: ResultParts): ScanResult {
 
 /** Longest string a result may hold; the longest legitimate one is a page URL or a 25-word quote. */
 const MAX_STRING_CHARS = 400;
-/** `name=` followed by a long token: a cookie, query or form value that slipped through. */
-const VALUE_TOKEN = /=\S{16,}/;
 const EMAIL = /[^\s@/]+@[^\s@/]+\.[a-z]{2,}/i;
 /** Keys that hold page URLs, where an `@` can be part of a path (`/@handle`). */
 const URL_KEYS = new Set(['target', 'url', 'pageUrl', 'pagesSearched', 'foundOn']);

@@ -18,6 +18,7 @@ import { FORM_PAGE_LINKS, PAGE_LINKS, SKIPPED_PAGE_PATHS } from './data/keywords
 import { PUBLIC_SUFFIXES } from './data/suffixes.js';
 import { parseTarget } from './guard.js';
 import type { PageReason } from './types.js';
+import { pageUrlOf } from './urls.js';
 
 /** Extra pages after the requested one (MAX_PAGES = 5 in total). */
 export const MAX_EXTRA_PAGES = 4;
@@ -89,14 +90,12 @@ export interface ChosenPage {
   reason: Exclude<PageReason, 'requested'>;
 }
 
-/** Origin and path only: fragments are the same page, and query strings can carry identifiers. */
-function pageKey(url: URL): string {
-  return `${url.origin}${url.pathname}`;
-}
-
-/** The key for duplicates: scheme dropped and `www.` folded into the bare host. */
+/**
+ * The key for duplicates: the recorded URL (src/urls.ts, so `/?page_id=3` and `/?page_id=7` stay two
+ * pages) with the scheme dropped and `www.` folded into the bare host.
+ */
 function sameKey(url: URL): string {
-  return `${url.hostname.replace(/^www\./, '')}${url.port ? `:${url.port}` : ''}${url.pathname}`;
+  return pageUrlOf(url).replace(/^https?:\/\/(www\.)?/, '');
 }
 
 /**
@@ -126,7 +125,7 @@ export function pickPages(
       continue;
     }
     if (!sameSite(url, target)) continue;
-    const key = pageKey(url);
+    const key = pageUrlOf(url);
     // `www.` and the bare host serve the same page on almost every site; count them once.
     const same = sameKey(url);
     if (same === targetSame || seen.has(same)) continue;
