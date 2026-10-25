@@ -5,17 +5,10 @@
  * page. Only that it was found counts; the contact itself is never recorded.
  */
 
-import { PRIVACY_CONTACT } from '../data/keywords.js';
 import type { Finding } from '../types.js';
 import type { CheckContext } from './context.js';
-import { absence, matchesAny } from './published.js';
+import { absence, PUBLISHED } from './published.js';
 
 export function detectW12(ctx: CheckContext): Finding | undefined {
-  return absence(
-    ctx,
-    'W12',
-    (p) =>
-      matchesAny(PRIVACY_CONTACT, p.text.text) ||
-      (p.text.hasMailto && (p.reason === 'privacy' || p.reason === 'contact')),
-  );
+  return absence(ctx, 'W12', PUBLISHED.W12);
 }
