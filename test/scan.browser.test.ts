@@ -377,3 +377,18 @@ describe('result on fixtures', () => {
     await expect(runScan(target, scanOf('storage-key-email').options)).rejects.toBeInstanceOf(RedactionError);
   });
 });
+
+// WS-3g: free page slots go to a likely form page, then other links.
+describe('page slots on fixtures', () => {
+  it('visits the form page and another link after the one policy page, and finds the GET form there', async () => {
+    const result = await runScan(target, scanOf('form-page-slot').options);
+    expect(result.pages.map((p) => [p.url, p.reason, p.status])).toEqual([
+      [SITE, 'requested', 'loaded'],
+      ['https://site.fixture.in/privacy', 'privacy', 'loaded'],
+      ['https://site.fixture.in/assessment', 'form', 'loaded'],
+      ['https://site.fixture.in/about', 'other', 'loaded'],
+    ]);
+    expect(ids(result)).toEqual(['W11']);
+    expect(result.findings[0]?.evidence.form?.pageUrl).toBe('https://site.fixture.in/assessment');
+  });
+});
