@@ -5,7 +5,7 @@
  * two when `../scs` is checked out (same approach as scs's legal-rules drift check).
  */
 
-export const CATALOGUE_VERSION = '2026-10-19-draft1';
+export const CATALOGUE_VERSION = '2026-10-25';
 
 export const CHECK_IDS = [
   'W1', // third-party trackers before any interaction
@@ -31,6 +31,7 @@ export type CheckId = (typeof CHECK_IDS)[number];
 /** Information-only observations: no provision, no label. */
 export const INFO_IDS = [
   'banner', // banner present/absent and vendor
+  'site-cookies', // login/security/consent-state identifiers left out of W2 (WS-2 review)
   'third-party-locations', // where third parties are (S.16: nothing restricted)
   'notice-languages', // languages offered (S.5(3))
   'coverage', // pages scanned and what blocked us
