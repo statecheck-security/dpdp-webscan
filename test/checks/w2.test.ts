@@ -39,6 +39,42 @@ describe('detectW2', () => {
     },
   );
 
+  it.each(['shopname_session', 'my_app_2_session'])(
+    "leaves out %s next to Laravel's XSRF-TOKEN, as its session cookie",
+    (name) => {
+      const baseline = snapshot({ cookies: [cookie('XSRF-TOKEN'), cookie(name)] });
+      expect(detectW2(context({ baseline }))).toBeUndefined();
+    },
+  );
+
+  it("counts an <app>_session cookie without Laravel's XSRF-TOKEN, or with a third-party one", () => {
+    const alone = snapshot({ cookies: [cookie('shopname_session')] });
+    expect(detectW2(context({ baseline: alone }))?.evidence.identifiers?.map((i) => i.name)).toEqual([
+      'shopname_session',
+    ]);
+    const foreign = snapshot({ cookies: [cookie('XSRF-TOKEN', 'other.in'), cookie('shopname_session')] });
+    expect(detectW2(context({ baseline: foreign }))?.evidence.identifiers?.map((i) => i.name)).toEqual([
+      'XSRF-TOKEN',
+      'shopname_session',
+    ]);
+  });
+
+  it.each(['_session', 'Shop_session', 'shop_session_id', 'shop-app_session'])(
+    'counts %s even next to XSRF-TOKEN: not a Laravel session name',
+    (name) => {
+      const baseline = snapshot({ cookies: [cookie('XSRF-TOKEN'), cookie(name)] });
+      expect(detectW2(context({ baseline }))?.evidence.identifiers?.map((i) => i.name)).toEqual([name]);
+    },
+  );
+
+  it('never treats a storage key shaped like a session cookie as benign', () => {
+    const baseline = snapshot({
+      cookies: [cookie('XSRF-TOKEN')],
+      storage: [storage('https://www.example.in', ['shopname_session'])],
+    });
+    expect(detectW2(context({ baseline }))?.evidence.identifiers?.map((i) => i.name)).toEqual(['shopname_session']);
+  });
+
   it('counts a benign name when a third party sets it', () => {
     const finding = detectW2(context({ baseline: snapshot({ cookies: [cookie('__cf_bm', 'cdn.vendor.in')] }) }));
     expect(finding?.evidence.identifiers?.map((i) => i.name)).toEqual(['__cf_bm']);

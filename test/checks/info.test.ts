@@ -69,6 +69,14 @@ describe('buildInfo', () => {
     });
   });
 
+  it("names a Laravel site's <app>_session cookie with its XSRF-TOKEN as site cookies", () => {
+    const baseline = snapshot({ cookies: [cookie('XSRF-TOKEN'), cookie('shopname_session')] });
+    expect(buildInfo(context({ baseline }))[1]?.evidence.identifiers?.map((i) => i.name)).toEqual([
+      'shopname_session',
+      'XSRF-TOKEN',
+    ]);
+  });
+
   it('names the banner vendor and the first page with a persistent control', () => {
     const ctx = context({
       banner: banner([button('reject'), button('accept')], 'We use cookies.', 'OneTrust'),

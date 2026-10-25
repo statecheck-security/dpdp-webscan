@@ -5,7 +5,7 @@
  */
 
 import type { CaptureSnapshot } from '../capture.js';
-import { BENIGN_IDENTIFIERS } from '../data/keywords.js';
+import { BENIGN_IDENTIFIERS, LARAVEL_CSRF, LARAVEL_SESSION } from '../data/keywords.js';
 import type { FormInfo } from '../forms.js';
 import type { Evidence, IdentifierSet, ThirdPartyRequest } from '../types.js';
 import type { TrackerLookup } from './context.js';
@@ -33,8 +33,9 @@ export function trackerRequests(snapshot: CaptureSnapshot, trackers: TrackerLook
   return [...byHost.values()].sort((a, b) => a.host.localeCompare(b.host) || a.pageUrl.localeCompare(b.pageUrl));
 }
 
-export function isBenignIdentifier(name: string, firstParty: boolean): boolean {
-  return firstParty && BENIGN_IDENTIFIERS.some((re) => re.test(name));
+/** `laravelSite`: the snapshot holds Laravel's first-party CSRF cookie, so `<app>_session` is its session cookie. */
+export function isBenignIdentifier(name: string, firstParty: boolean, laravelSite = false): boolean {
+  return firstParty && (BENIGN_IDENTIFIERS.some((re) => re.test(name)) || (laravelSite && LARAVEL_SESSION.test(name)));
 }
 
 const STORE_ORDER: Record<IdentifierSet['store'], number> = { cookie: 0, localStorage: 1, sessionStorage: 2 };
@@ -49,12 +50,14 @@ export function identifiersIn(
   snapshot: CaptureSnapshot,
   opts: { sinceMarkOnly?: boolean; benign?: boolean } = {},
 ): IdentifierSet[] {
-  const keep = (name: string, firstParty: boolean): boolean =>
-    isBenignIdentifier(name, firstParty) === (opts.benign ?? false);
+  // Read from every cookie, not just those since the mark: the CSRF cookie is usually set on the first load.
+  const laravelSite = snapshot.cookies.some((c) => c.firstParty && LARAVEL_CSRF.test(c.name));
+  const keep = (name: string, firstParty: boolean, cookie: boolean): boolean =>
+    isBenignIdentifier(name, firstParty, cookie && laravelSite) === (opts.benign ?? false);
   const out: IdentifierSet[] = [];
   for (const c of snapshot.cookies) {
     if (opts.sinceMarkOnly && !c.setSinceMark) continue;
-    if (!keep(c.name, c.firstParty)) continue;
+    if (!keep(c.name, c.firstParty, true)) continue;
     out.push({
       name: c.name,
       domain: c.domain,
@@ -66,7 +69,7 @@ export function identifiersIn(
   for (const s of snapshot.storage) {
     const domain = new URL(s.origin).hostname;
     for (const key of opts.sinceMarkOnly ? s.keysSetSinceMark : s.keys) {
-      if (!keep(key, s.firstParty)) continue;
+      if (!keep(key, s.firstParty, false)) continue;
       out.push({ name: key, domain, store: s.store, firstParty: s.firstParty });
     }
   }

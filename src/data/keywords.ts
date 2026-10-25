@@ -82,6 +82,15 @@ export const BENIGN_IDENTIFIERS: readonly RegExp[] = [
   /^uc_(settings|user_interaction)$/,
 ];
 
+/**
+ * Laravel names its session cookie `<app name, slugged with _>_session`; a custom name such as
+ * `shopname_session` was counted as W2 on a real scan (2026-10-25). A name that shape is a session
+ * cookie only on a Laravel site, which always sets LARAVEL_CSRF next to it (src/checks/evidence.ts):
+ * on its own, `site_session` could be anything.
+ */
+export const LARAVEL_SESSION = /^[a-z0-9]+(_[a-z0-9]+)*_session$/;
+export const LARAVEL_CSRF = /^XSRF-TOKEN$/;
+
 /** Words that make a fixed box a consent banner rather than, say, a newsletter popup (WS-4b). */
 export const BANNER_TEXT = /\bcookies?\b|\bconsent\b|\btrack(ing|ers?)\b|\bpersonal (data|information)\b|\bprivacy\b/i;
 
