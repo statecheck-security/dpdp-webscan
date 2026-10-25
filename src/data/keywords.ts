@@ -194,3 +194,18 @@ export const BOARD_COMPLAINT: readonly RegExp[] = [/\bData Protection Board\b/i]
 export const WITHDRAW_CONSENT = /\bwithdraw\w*\b.{0,40}\bconsent\b|\bconsent\b.{0,40}\bwithdraw\w*\b/i;
 export const WITHDRAW_HOW =
   /\b(e-?mail\w*|write|writing|click\w*|settings|link|contact\w*|form|unsubscribe|button|toggle|preferences|dashboard|account)\b/i;
+
+/**
+ * WS-3g: free extra-page slots go first to pages that probably hold a form
+ * (forms are only inspected on pages we load), by link text or path.
+ */
+export const FORM_PAGE_LINKS = {
+  text: /\b(assessments?|quotes?|sign ?up|register|registration|get started|book(ing)?|enquir(e|y)|inquir(e|y)|apply|application|demo|free trial|request a (call|callback)|audit|consultation)\b|\bfree\s+(\w+\s+){0,2}(check|audit|consultation|assessment|trial|demo)\b/i,
+  path: /assess|quote|sign-?up|regist|get-started|book|enquir|inquir|apply|demo|trial|audit|consult/i,
+};
+
+/** Never used to fill a slot: files, and pages behind or about an account (WS-3g). */
+export const SKIPPED_PAGE_PATHS = [
+  /\.(pdf|docx?|xlsx?|pptx?|csv|zip|rar|7z|gz|tar|jpe?g|png|gif|webp|svg|ico|mp4|webm|mov|mp3|wav|apk|exe|dmg|xml|json|txt)$/i,
+  /(^|\/)(log-?in|log-?out|sign-?in|sign-?out|wp-login(\.php)?|wp-admin|admin|account|my-?account|profile|cart|basket|checkout)(\/|$)/i,
+] as const;

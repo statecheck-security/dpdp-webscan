@@ -84,6 +84,8 @@ describe('pickPages', () => {
     expect(pickPages(links, target)).toEqual([
       { url: 'https://www.example.co.in/p/42', reason: 'privacy' },
       { url: 'https://www.example.co.in/support/contact-form', reason: 'contact' },
+      // Not a privacy page by its text, so it only fills a free slot (WS-3g).
+      { url: 'https://www.example.co.in/privacy-old', reason: 'other' },
     ]);
   });
 
@@ -116,8 +118,60 @@ describe('pickPages', () => {
     ]);
   });
 
-  it('returns nothing when no link matches', () => {
-    expect(pickPages([link('https://www.example.co.in/shop', 'Shop')], target)).toEqual([]);
+  it('returns nothing when there is no same-site link', () => {
+    expect(pickPages([link('https://other.in/shop', 'Shop')], target)).toEqual([]);
+  });
+
+  // WS-3g: free slots.
+  it('fills free slots with likely form pages first, then other links in document order, at most 4 in all', () => {
+    const links = [
+      link('https://www.example.co.in/about', 'About us'),
+      link('https://www.example.co.in/blog', 'Blog'),
+      link('https://www.example.co.in/privacy', 'Privacy Policy'),
+      link('https://www.example.co.in/tools/check', 'Take the free assessment'),
+      link('https://www.example.co.in/get-a-quote', 'Pricing'),
+      link('https://www.example.co.in/services', 'Services'),
+    ];
+    expect(pickPages(links, target)).toEqual([
+      { url: 'https://www.example.co.in/privacy', reason: 'privacy' },
+      { url: 'https://www.example.co.in/tools/check', reason: 'form' },
+      { url: 'https://www.example.co.in/get-a-quote', reason: 'form' },
+      { url: 'https://www.example.co.in/about', reason: 'other' },
+    ]);
+  });
+
+  it.each([
+    ['a file', 'https://www.example.co.in/brochure.pdf', 'Download our brochure'],
+    ['an image', 'https://www.example.co.in/img/team.JPG', 'Team photo'],
+    ['a login page', 'https://www.example.co.in/login', 'Log in'],
+    ['an account page', 'https://www.example.co.in/my-account/orders', 'My orders'],
+    ['a cart', 'https://www.example.co.in/cart', 'Cart'],
+    ['a checkout', 'https://www.example.co.in/checkout/', 'Checkout'],
+    ['WordPress admin', 'https://www.example.co.in/wp-admin/', 'Admin'],
+  ])('never fills a slot with %s', (_name, href, text) => {
+    expect(pickPages([link(href, text)], target)).toEqual([]);
+  });
+
+  it('skips filler pages robots.txt disallows, but keeps a disallowed policy page in its slot', () => {
+    const links = [
+      link('https://www.example.co.in/privacy', 'Privacy'),
+      link('https://www.example.co.in/private/signup', 'Sign up'),
+      link('https://www.example.co.in/register', 'Register'),
+    ];
+    const allowed = (url: URL) => !url.pathname.startsWith('/private') && url.pathname !== '/privacy';
+    expect(pickPages(links, target, allowed)).toEqual([
+      { url: 'https://www.example.co.in/privacy', reason: 'privacy' },
+      { url: 'https://www.example.co.in/register', reason: 'form' },
+    ]);
+  });
+
+  it('counts www and the bare host as one page', () => {
+    const links = [
+      link('https://example.co.in/about', 'About'),
+      link('https://www.example.co.in/about', 'About'),
+      link('https://example.co.in/', 'Home'),
+    ];
+    expect(pickPages(links, target)).toEqual([{ url: 'https://example.co.in/about', reason: 'other' }]);
   });
 });
 
