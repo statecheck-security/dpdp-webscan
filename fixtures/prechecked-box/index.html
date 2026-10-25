@@ -1,0 +1,17 @@
+<!-- Exercises: W6 (a consent box ticked by the site) and form redaction: the email field's value is the sentinel SECRET-VALUE-DO-NOT-RECORD, which must never appear in a result. The form is otherwise fine: POST, same-site https action. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Pre-ticked box</title>
+  </head>
+  <body>
+    <h1>Get our brochure</h1>
+    <form method="post" action="/brochure">
+      <label>Email <input type="email" name="email" value="SECRET-VALUE-DO-NOT-RECORD" /></label>
+      <label><input type="checkbox" name="marketing_optin" checked /> Send me offers and updates by email</label>
+      <label><input type="checkbox" name="remember" checked /> Remember this device</label>
+      <button type="submit">Send</button>
+    </form>
+  </body>
+</html>

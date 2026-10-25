@@ -19,7 +19,7 @@ Local static pages the engine is tested against (plan WS-8). `test/fixtures.ts` 
 | `no-settings-link/`                               | W7                                                                                                                                                         |
 | `session-replay-form/`                            | W8                                                                                                                                                         |
 | `third-party-form/`                               | W9                                                                                                                                                         |
-| `http-form/`                                      | W10 (served over plain http by a second fixture server)                                                                                                    |
+| `http-form/`                                      | W10 (scanned as `http://site.fixture.in/`; routing serves plain http like https)                                                                           |
 | `get-form-email/`                                 | W11                                                                                                                                                        |
 | `policy-complete/` and `policy-missing-items/`    | W12–W16                                                                                                                                                    |
 | `policy-120-days/`                                | W14 (period published but above 90 days)                                                                                                                   |

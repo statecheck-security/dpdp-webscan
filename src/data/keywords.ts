@@ -2,7 +2,7 @@
  * English keyword lists (plan WS-3d, WS-4b, WS-5a). Matchers only: nothing
  * here is shown to a user. WS-3d adds the link lists used to pick the up to
  * 4 extra pages, WS-4a the identifiers W2 and W3 leave out, WS-4b the banner
- * lists; the text lists follow in WS-5a.
+ * lists, WS-4c the form lists; the text lists follow in WS-5a.
  */
 
 import type { PageReason } from '../types.js';
@@ -119,3 +119,18 @@ export const CLICK_CONSENT = /\bby (clicking|selecting|pressing|tapping|choosing
 /** Labels of a persistent control for changing consent later (W7), outside the banner. */
 export const PERSISTENT_CONTROL =
   /\bcookie (settings|preferences|choices|consent)\b|\bprivacy (settings|choices|preferences)\b|\bmanage (cookies|consent|preferences|privacy)\b|\bconsent (settings|preferences|choices)\b|\bdo not sell\b|\bchange (my |your )?(cookie|consent|privacy) (settings|preferences|choices)\b|\b(revoke|withdraw) consent\b/i;
+
+/** Field name, id, placeholder or aria-label hints that the field asks for personal data (WS-4c). */
+export const PERSONAL_FIELD =
+  /e-?mail|phone|mobile|\btel\b|whats-?app|(^|[\s_-])name($|[\s_-])|first.?name|last.?name|full.?name|surname|address|pin.?code|postal|\bzip\b|\bpan\b|aadha?ar|\bdob\b|birth/i;
+
+/** autocomplete tokens for personal data (HTML autofill field names). */
+export const PERSONAL_AUTOCOMPLETE =
+  /^(name|given-name|family-name|additional-name|email|tel|tel-national|street-address|address-line[123]|postal-code|bday)$/;
+
+/** A checkbox whose label or name reads as consent, agreement or opting in (W6). */
+export const CONSENT_CHECKBOX =
+  /\bconsent\b|\bagree\b|\baccept\b|\bsubscribe\b|newsletter|marketing|\boffers?\b|promotion|\bupdates\b|communicat|whats-?app|\bsms\b|\bcall me\b|\bcontact me\b|opt.?in|\bterms\b|\bprivacy\b/i;
+
+/** The single field of a search form, which is never a personal-data form. */
+export const SEARCH_FIELD = /^(q|s|query|search|keywords?|term)$/i;

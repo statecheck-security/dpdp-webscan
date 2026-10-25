@@ -1,12 +1,13 @@
 /**
- * Turns a CaptureSnapshot into finding evidence (WS-4a). Shared by the
- * checks that report hosts or identifiers (W1, W2, W3), so they all
- * group, label and order evidence the same way. Pure: no Playwright.
+ * Turns captured data into finding evidence (WS-4a, WS-4c). Shared by the
+ * checks that report hosts, identifiers (W1–W3) or forms (W6, W8–W11), so
+ * they all group, label and order evidence the same way. Pure: no Playwright.
  */
 
 import type { CaptureSnapshot } from '../capture.js';
 import { BENIGN_IDENTIFIERS } from '../data/keywords.js';
-import type { IdentifierSet, ThirdPartyRequest } from '../types.js';
+import type { FormInfo } from '../forms.js';
+import type { Evidence, IdentifierSet, ThirdPartyRequest } from '../types.js';
 import type { TrackerLookup } from './context.js';
 
 /** Third-party requests in a snapshot, one entry per host and page, with the vendor when the list knows it. */
@@ -66,4 +67,20 @@ export function identifiersIn(snapshot: CaptureSnapshot, opts: { sinceMarkOnly?:
     (a, b) =>
       STORE_ORDER[a.store] - STORE_ORDER[b.store] || a.domain.localeCompare(b.domain) || a.name.localeCompare(b.name),
   );
+}
+
+/** A form asks for personal data when any field does (WS-4c). W8–W11 look only at these. */
+export function isPersonalForm(form: FormInfo): boolean {
+  return form.fields.some((f) => f.personal);
+}
+
+/** Form evidence: where it is, how it sends, field types and names. Never values or labels. */
+export function formEvidence(form: FormInfo): NonNullable<Evidence['form']> {
+  return {
+    pageUrl: form.pageUrl,
+    method: form.method,
+    ...(form.actionHost ? { actionHost: form.actionHost } : {}),
+    ...(form.actionScheme ? { actionScheme: form.actionScheme } : {}),
+    fields: form.fields.map(({ type, name }) => ({ type, name })),
+  };
 }

@@ -21,7 +21,8 @@ const MAX_KEYS_PER_STORE = 200;
 const MAX_KEY_LENGTH = 100;
 const STORAGE_READ_TIMEOUT_MS = 2_000;
 
-export type SnapshotLabel = 'baseline' | 'after-reject' | 'after-accept';
+/** `all-pages`: the baseline context once every scanned page has loaded, still with no click (W8). */
+export type SnapshotLabel = 'baseline' | 'after-reject' | 'after-accept' | 'all-pages';
 
 export interface CapturedRequest {
   host: string;

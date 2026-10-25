@@ -1,0 +1,19 @@
+<!-- Exercises: W11 (personal data put in the URL). The newsletter form sends its email field by GET. A search box (GET, one field named q) is ignored, and so is a form with neither method nor action, which a script would submit. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>GET form with email</title>
+  </head>
+  <body>
+    <form action="/search"><input type="search" name="q" /></form>
+    <form>
+      <label>Phone <input type="tel" name="phone" /></label><button type="button">Call me</button>
+    </form>
+    <h1>Newsletter</h1>
+    <form method="get" action="/subscribe">
+      <label>Email <input type="email" name="email" /></label>
+      <button type="submit">Subscribe</button>
+    </form>
+  </body>
+</html>

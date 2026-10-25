@@ -2,6 +2,7 @@
 import type { BannerButton, BannerInfo, ButtonRole } from '../../src/banner.js';
 import type { CaptureSnapshot, CapturedCookie, CapturedStorage, RequestCount } from '../../src/capture.js';
 import type { CheckContext } from '../../src/checks/context.js';
+import type { FormInfo } from '../../src/forms.js';
 import { categorise } from '../../src/data/trackers.js';
 
 export const PAGE = 'https://www.example.in/';
@@ -70,4 +71,19 @@ export function button(role: ButtonRole, label: string = role, clicksFromFirstLa
 
 export function banner(buttons: BannerButton[], text = 'We use cookies.', vendor?: string): BannerInfo {
   return { text, buttons, ...(vendor ? { vendor } : {}) };
+}
+
+/** A same-site POST form with a personal email field, unless `parts` says otherwise. */
+export function form(parts: Partial<FormInfo> = {}): FormInfo {
+  return {
+    pageUrl: PAGE,
+    method: 'post',
+    actionHost: 'www.example.in',
+    actionScheme: 'https',
+    actionThirdParty: false,
+    scriptHandled: false,
+    fields: [{ type: 'email', name: 'email', personal: true }],
+    checkboxes: [],
+    ...parts,
+  };
 }

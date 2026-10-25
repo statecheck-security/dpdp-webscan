@@ -261,3 +261,61 @@ describe('banner checks on fixtures', () => {
     expect(result.findings[0]?.evidence.pagesSearched?.[0]).toBe(SITE);
   });
 });
+
+// WS-4c: the real form inspector on fixtures. Forms are read, never submitted.
+describe('form checks on fixtures', () => {
+  const ids = (result: { findings: { id: string }[] }) => result.findings.map((f) => f.id);
+
+  it('reads the contact form on clean and finds nothing wrong with it', async () => {
+    const collection = await collectScan(target, scanOf('clean').options);
+    expect(collection.forms.map((f) => [f.pageUrl, f.method, f.fields.map((x) => x.name)])).toEqual([
+      ['https://site.fixture.in/contact', 'post', ['full_name', 'email', 'updates']],
+    ]);
+    expect(collection.allPages?.label).toBe('all-pages');
+  });
+
+  it('reports W6 for a ticked marketing box, and never records the field value', async () => {
+    const result = await runScan(target, scanOf('prechecked-box').options);
+    expect(ids(result)).toEqual(['W6']);
+    expect(result.findings[0]?.evidence.form?.fields).toEqual([
+      { type: 'email', name: 'email' },
+      { type: 'checkbox', name: 'marketing_optin' },
+      { type: 'checkbox', name: 'remember' },
+    ]);
+    expect(JSON.stringify(result)).not.toContain('SECRET-VALUE-DO-NOT-RECORD');
+  });
+
+  it('reports W8 when an extra page loads session replay next to a personal form', async () => {
+    const { options, routing } = scanOf('session-replay-form');
+    const result = await runScan(target, options);
+    expect(ids(result)).toEqual(['W8']);
+    expect(result.findings[0]?.evidence.thirdParties?.map((t) => [t.host, t.pageUrl])).toEqual([
+      ['replay-fixture.in', 'https://site.fixture.in/contact'],
+    ]);
+    expect(routing.unrouted).toEqual([]);
+  });
+
+  it('reports W9 for a form posting to another company, not for the payment form', async () => {
+    const result = await runScan(target, scanOf('third-party-form').options);
+    expect(ids(result)).toEqual(['W9']);
+    expect(result.findings[0]?.evidence.form?.actionHost).toBe('forms-fixture.in');
+  });
+
+  it('reports W10 for a personal form on a plain-http page', async () => {
+    const result = await runScan(new URL('http://site.fixture.in/'), scanOf('http-form').options);
+    expect(ids(result)).toEqual(['W10']);
+    expect(result.findings[0]?.evidence.form).toMatchObject({
+      pageUrl: 'http://site.fixture.in/',
+      actionScheme: 'http',
+    });
+  });
+
+  it('reports W11 for an email sent by GET, not for the search box or the script form', async () => {
+    const result = await runScan(target, scanOf('get-form-email').options);
+    expect(ids(result)).toEqual(['W11']);
+    expect(result.findings[0]?.evidence.form).toMatchObject({
+      method: 'get',
+      fields: [{ type: 'email', name: 'email' }],
+    });
+  });
+});
