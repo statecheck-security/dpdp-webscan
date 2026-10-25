@@ -1,7 +1,7 @@
-// WS-5b: the information-only items, from hand-built contexts.
+// WS-5b: the information-only items, from hand-built contexts (site-cookies: WS-2 owner review).
 import { describe, expect, it } from 'vitest';
 import { buildInfo } from '../../src/checks/info.js';
-import { banner, button, context, PAGE, request, snapshot } from './context.js';
+import { banner, button, context, cookie, PAGE, request, snapshot, storage } from './context.js';
 
 const loaded = (path: string, reason: 'requested' | 'privacy' | 'grievance' = 'privacy') => ({
   url: `${PAGE}${path}`,
@@ -17,21 +17,56 @@ describe('buildInfo', () => {
     expect(buildInfo(ctx)).toEqual([{ id: 'coverage', evidence: { pagesSearched: [], found: [] } }]);
   });
 
-  it('says no banner was seen, lists third parties before any click, and the languages', () => {
+  it('says no banner was seen, lists non-tracker third parties before any click, and the languages', () => {
     const ctx = context({
       allPages: snapshot({
         label: 'all-pages',
-        requests: [request('www.example.in'), request('fonts.gstatic.com'), request('www.google-analytics.com')],
+        requests: [
+          request('www.example.in'),
+          request('fonts.gstatic.com'),
+          request('checkout.razorpay.com'),
+          request('www.google-analytics.com'),
+        ],
       }),
       texts: new Map([[PAGE, text('Home', ['en', 'hi'])]]),
     });
-    const [bannerInfo, parties, langs] = buildInfo(ctx);
+    const [bannerInfo, cookies, parties, langs] = buildInfo(ctx);
     expect(bannerInfo).toEqual({ id: 'banner', evidence: { bannerFound: false } });
-    expect(parties?.evidence.thirdParties?.map((t) => [t.host, t.category])).toEqual([
-      ['fonts.gstatic.com', 'other'],
-      ['www.google-analytics.com', 'analytics'],
+    expect(cookies).toEqual({ id: 'site-cookies', evidence: { identifiers: [] } });
+    // Trackers are W1's; this item names the rest.
+    expect(parties?.evidence.thirdParties?.map((t) => [t.host, t.vendor ?? '', t.category])).toEqual([
+      ['checkout.razorpay.com', 'Razorpay', 'other'],
+      ['fonts.gstatic.com', '', 'other'],
     ]);
     expect(langs).toEqual({ id: 'notice-languages', evidence: { pageLang: ['en', 'hi'] } });
+  });
+
+  it('names the session, security and consent-state cookies W2 leaves out, and only those', () => {
+    const baseline = snapshot({
+      cookies: [
+        cookie('PHPSESSID'),
+        cookie('OptanonConsent', 'example.in', { expiresInSeconds: 31_536_000 }),
+        cookie('_ga', 'example.in'),
+        cookie('__cf_bm', 'cdn.vendor.in'),
+      ],
+      storage: [storage('https://www.example.in', ['uc_settings', 'cart'])],
+    });
+    expect(buildInfo(context({ baseline }))[1]).toEqual({
+      id: 'site-cookies',
+      evidence: {
+        identifiers: [
+          {
+            name: 'OptanonConsent',
+            domain: 'example.in',
+            store: 'cookie',
+            firstParty: true,
+            expiresInSeconds: 31_536_000,
+          },
+          { name: 'PHPSESSID', domain: 'www.example.in', store: 'cookie', firstParty: true },
+          { name: 'uc_settings', domain: 'www.example.in', store: 'localStorage', firstParty: true },
+        ],
+      },
+    });
   });
 
   it('names the banner vendor and the first page with a persistent control', () => {

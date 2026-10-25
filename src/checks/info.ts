@@ -5,18 +5,25 @@
  *
  *  - banner: whether the requested page showed a consent banner, its vendor,
  *    and the first page with a persistent settings control.
- *  - third-party-locations: every third-party host the site contacted before
- *    any click, across the scanned pages. No country yet (v1): S.16 restricts
- *    no country, so this is information only.
+ *  - site-cookies: the first-party session, security, load-balancing and
+ *    consent-state identifiers on the requested page before any choice, by
+ *    name only. W2 leaves exactly these out (BENIGN_IDENTIFIERS); the report
+ *    names them, since the Act has no exemption for cookies a site needs
+ *    (WS-2 owner review, catalogue 2026-10-25).
+ *  - third-party-locations: third-party hosts the site contacted before any
+ *    click, across the scanned pages, that are not trackers (trackers are in
+ *    W1): payment gateways, CMPs, chat, fonts, unknown hosts. No country yet
+ *    (v1): S.16 restricts no country, so this is information only.
  *  - notice-languages: the `lang` attributes seen (we check English text only).
  *  - coverage: the pages we read, and where each published item W12–W16 was found.
  *
  * Nothing about a page we never loaded: with no loaded page there is only coverage.
  */
 
+import { isTracking } from '../data/trackers.js';
 import type { Info } from '../types.js';
 import type { CheckContext } from './context.js';
-import { trackerRequests } from './evidence.js';
+import { identifiersIn, trackerRequests } from './evidence.js';
 import { grievancePeriods, PUBLISHED, searchedPages } from './published.js';
 
 const MAX_DAYS = 90;
@@ -54,9 +61,14 @@ export function buildInfo(ctx: CheckContext): Info[] {
         ...(ctx.banner && control ? { foundOn: control } : {}),
       },
     },
+    { id: 'site-cookies', evidence: { identifiers: identifiersIn(ctx.baseline, { benign: true }) } },
     {
       id: 'third-party-locations',
-      evidence: { thirdParties: trackerRequests(ctx.allPages ?? ctx.baseline, ctx.trackers) },
+      evidence: {
+        thirdParties: trackerRequests(ctx.allPages ?? ctx.baseline, ctx.trackers).filter(
+          (r) => !isTracking(r.category),
+        ),
+      },
     },
     { id: 'notice-languages', evidence: { pageLang: langs } },
     coverage,

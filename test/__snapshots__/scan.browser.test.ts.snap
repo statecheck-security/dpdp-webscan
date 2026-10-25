@@ -3,7 +3,7 @@
 exports[`result on fixtures > matches the reviewed snapshot for clean, timestamps normalised 1`] = `
 {
   "catalogueVersion": "2026-10-25",
-  "engineVersion": "0.8.0",
+  "engineVersion": "0.9.0",
   "findings": [],
   "finishedAt": "<time>",
   "info": [
@@ -13,6 +13,12 @@ exports[`result on fixtures > matches the reviewed snapshot for clean, timestamp
         "foundOn": "https://site.fixture.in/",
       },
       "id": "banner",
+    },
+    {
+      "evidence": {
+        "identifiers": [],
+      },
+      "id": "site-cookies",
     },
     {
       "evidence": {
