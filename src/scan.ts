@@ -4,8 +4,10 @@
  * tracker / banner / form" question belongs to the module that owns it.
  *
  *  1. Baseline context: load the target, snapshot before any interaction,
- *     find the banner (no click), inspect the page, choose up to 4 extra pages,
- *     read robots.txt (after the snapshot, so it is not part of the first load).
+ *     find the banner (no click), inspect the page, read robots.txt (after
+ *     the snapshot, so it is not part of the first load), then choose up to
+ *     4 extra pages: policy pages first, likely form pages and other links in
+ *     the free slots (WS-3g).
  *  2. If a banner was found: a fresh context per choice, mark, click reject
  *     (then accept), wait, snapshot what happened after the click.
  *  3. Extra pages in the baseline context (no clicks there), robots.txt honoured.
@@ -290,10 +292,11 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
     const found = await guarded('banner', () => inspect.findBanner(base.page), undefined);
     if (found) collection.banner = found;
     await inspectPage(base.page, target.href);
-    const chosen = await guarded('discover', () => discoverPages(base.page, target), []);
+    // robots.txt before choosing pages, so a disallowed page never takes a free slot (WS-3g).
     const fetchRobots = opts.fetchRobots ?? contextRobotsFetcher(base.context, { blocked: base.blocked });
     const unreachable: RobotsFetch = { status: 'unreachable' };
     const robots = robotsPolicy(await guarded('robots', () => fetchRobots(target.origin), unreachable));
+    const chosen = await guarded('discover', () => discoverPages(base.page, target, robots), []);
 
     // Step 2: reject, then accept, each in its own fresh context.
     if (collection.banner) {

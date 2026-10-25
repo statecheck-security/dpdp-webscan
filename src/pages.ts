@@ -1,7 +1,8 @@
 /**
  * Which pages a scan visits (WS-3c, WS-3d): same-site rules (registrable
  * domain from the hand-kept list in src/data/suffixes.ts, plan section 4),
- * choosing the up to 4 extra pages by link text, and robots.txt.
+ * choosing the up to 4 extra pages by link text (policy pages first, then
+ * likely form pages and other links in the free slots, WS-3g), and robots.txt.
  *
  * robots.txt is honoured for the extra pages only; the requested URL is always
  * loaded, as a visitor would (plan section 4). It is fetched through the
@@ -13,7 +14,7 @@ import { isIP } from 'node:net';
 import type { BrowserContext, Page } from 'playwright';
 import { loadPage, PAGE_TIMEOUT_MS, withTimeout } from './browser.js';
 import type { BlockedRequest } from './browser.js';
-import { PAGE_LINKS } from './data/keywords.js';
+import { FORM_PAGE_LINKS, PAGE_LINKS, SKIPPED_PAGE_PATHS } from './data/keywords.js';
 import { PUBLIC_SUFFIXES } from './data/suffixes.js';
 import type { PageReason } from './types.js';
 
@@ -74,14 +75,29 @@ function pageKey(url: URL): string {
   return `${url.origin}${url.pathname}`;
 }
 
+/** The key for duplicates: scheme dropped and `www.` folded into the bare host. */
+function sameKey(url: URL): string {
+  return `${url.hostname.replace(/^www\./, '')}${url.port ? `:${url.port}` : ''}${url.pathname}`;
+}
+
 /**
- * Choose up to MAX_EXTRA_PAGES same-site pages, at most one per reason, in the
- * order of PAGE_LINKS (privacy → cookies → contact → grievance → terms). Link
- * text wins over a path match; within each, document order decides.
+ * Choose up to MAX_EXTRA_PAGES same-site pages.
+ *  1. Policy pages, at most one per reason, in the order of PAGE_LINKS
+ *     (privacy → cookies → contact → grievance → terms). Link text wins over
+ *     a path match; within each, document order decides. A policy page
+ *     robots.txt disallows still takes its slot (the scan records it as
+ *     `skipped-robots`, so the report says why it was not checked).
+ *  2. Free slots (WS-3g): links that look like a form page (`form`), then any
+ *     other link (`other`), in document order, skipping files, account pages
+ *     and pages robots.txt disallows (`allowed`).
  */
-export function pickPages(links: readonly PageLink[], target: URL): ChosenPage[] {
-  const targetKey = pageKey(target);
-  const candidates: { key: string; path: string; text: string }[] = [];
+export function pickPages(
+  links: readonly PageLink[],
+  target: URL,
+  allowed: (url: URL) => boolean = () => true,
+): ChosenPage[] {
+  const targetSame = sameKey(target);
+  const candidates: { key: string; path: string; text: string; url: URL }[] = [];
   const seen = new Set<string>();
   for (const link of links) {
     let url: URL;
@@ -92,9 +108,11 @@ export function pickPages(links: readonly PageLink[], target: URL): ChosenPage[]
     }
     if (!sameSite(url, target)) continue;
     const key = pageKey(url);
-    if (key === targetKey || seen.has(key)) continue;
-    seen.add(key);
-    candidates.push({ key, path: url.pathname, text: link.text });
+    // `www.` and the bare host serve the same page on almost every site; count them once.
+    const same = sameKey(url);
+    if (same === targetSame || seen.has(same)) continue;
+    seen.add(same);
+    candidates.push({ key, path: url.pathname, text: link.text, url });
   }
 
   const chosen: ChosenPage[] = [];
@@ -107,11 +125,30 @@ export function pickPages(links: readonly PageLink[], target: URL): ChosenPage[]
     used.add(match.key);
     chosen.push({ url: match.key, reason });
   }
+
+  const fillers = candidates.filter(
+    (c) => !used.has(c.key) && !SKIPPED_PAGE_PATHS.some((re) => re.test(c.path)) && allowed(c.url),
+  );
+  const formLike = fillers.filter((c) => FORM_PAGE_LINKS.text.test(c.text) || FORM_PAGE_LINKS.path.test(c.path));
+  const rest = fillers.filter((c) => !formLike.includes(c));
+  for (const [list, reason] of [
+    [formLike, 'form'],
+    [rest, 'other'],
+  ] as const) {
+    for (const c of list) {
+      if (chosen.length >= MAX_EXTRA_PAGES) return chosen;
+      chosen.push({ url: c.key, reason });
+    }
+  }
   return chosen;
 }
 
-/** Read the page's links (href and label only) and choose the extra pages. */
-export async function discoverPages(page: Page, target: URL): Promise<ChosenPage[]> {
+/** Read the page's links (href and label only) and choose the extra pages; `allowed` is the robots.txt policy. */
+export async function discoverPages(
+  page: Page,
+  target: URL,
+  allowed: (url: URL) => boolean = () => true,
+): Promise<ChosenPage[]> {
   const links = await withTimeout(
     page
       .$$eval(
@@ -128,7 +165,7 @@ export async function discoverPages(page: Page, target: URL): Promise<ChosenPage
     LINK_READ_TIMEOUT_MS,
     (): PageLink[] => [],
   );
-  return pickPages(links, target);
+  return pickPages(links, target, allowed);
 }
 
 // --- robots.txt (WS-3d) ---
