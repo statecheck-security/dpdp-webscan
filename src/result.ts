@@ -12,7 +12,7 @@
 import { CATALOGUE_VERSION, CHECK_IDS, INFO_IDS } from './checks.js';
 import { ENGINE_VERSION, PARTIAL_REASONS } from './types.js';
 import type { Finding, Info, PageVisit, PartialReason, ScanResult } from './types.js';
-import { VALUE_TOKEN } from './urls.js';
+import { pageUrlOf, VALUE_TOKEN } from './urls.js';
 
 export interface ResultParts {
   target: URL;
@@ -29,7 +29,8 @@ export function buildResult(parts: ResultParts): ScanResult {
   return {
     engineVersion: ENGINE_VERSION,
     catalogueVersion: CATALOGUE_VERSION,
-    target: parts.target.href,
+    // Recorded like every page URL: a query string the requester typed (`?gclid=…`) is dropped.
+    target: pageUrlOf(parts.target),
     startedAt: parts.startedAt.toISOString(),
     finishedAt: parts.finishedAt.toISOString(),
     partial: reasons.size > 0,

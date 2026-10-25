@@ -420,6 +420,13 @@ describe('review fixes on fixtures', () => {
     }
   });
 
+  it('records a requested URL without its query string, so a click id cannot fail the result', async () => {
+    const result = await runScan(new URL(`${SITE}?gclid=Cj0KCQjwAAAAAAAAAAAAAAAA`), scanOf('clean').options);
+    expect(result.target).toBe(SITE);
+    expect(result.pages[0]?.url).toBe(SITE);
+    expect(result.findings).toEqual([]);
+  });
+
   it('visits the extra pages before the accept run, so the policy pages get the budget first', async () => {
     const steps: string[] = [];
     const { options } = scanOf('clean', {

@@ -53,6 +53,7 @@ import { assertRedacted, buildResult } from './result.js';
 import { extractText } from './text.js';
 import type { ExtractText, PageText } from './text.js';
 import type { PageReason, PageStatus, PageVisit, PartialReason, ScanResult } from './types.js';
+import { pageUrlOfString } from './urls.js';
 
 export const SCAN_TIMEOUT_MS = 90_000;
 export const MAX_PAGES = 1 + MAX_EXTRA_PAGES;
@@ -231,7 +232,7 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
     const started = Date.now();
     const outcome = await loadPage(ctx.page, url, { blocked: ctx.blocked, timeoutMs });
     const pageVisit: PageVisit = {
-      url,
+      url: pageUrlOfString(url) ?? url,
       reason,
       status: STATUS[outcome.status],
       ...('httpStatus' in outcome && outcome.httpStatus !== undefined ? { httpStatus: outcome.httpStatus } : {}),
@@ -312,7 +313,7 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
 
     const found = await guarded('banner', () => inspect.findBanner(base.page), undefined);
     if (found) collection.banner = found;
-    await inspectPage(base.page, target.href);
+    await inspectPage(base.page, first.url);
     // robots.txt before choosing pages, so a disallowed page never takes a free slot (WS-3g).
     const fetchRobots = opts.fetchRobots ?? contextRobotsFetcher(base.context, { blocked: base.blocked });
     const unreachable: RobotsFetch = { status: 'unreachable' };
@@ -336,7 +337,7 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
       }
       const pageVisit = await visit(base, page.url, page.reason);
       if (!pageVisit) break;
-      if (pageVisit.status === 'loaded') await inspectPage(base.page, page.url);
+      if (pageVisit.status === 'loaded') await inspectPage(base.page, pageVisit.url);
     }
     collection.allPages = await base.capture.snapshot('all-pages');
 

@@ -48,6 +48,12 @@ describe('buildResult', () => {
       'W12',
     ]);
   });
+  it('records the target without a query string that could carry an identifier', () => {
+    const target = new URL('https://www.example.in/?gclid=Cj0KCQjwAAAAAAAAAAAAAAAA');
+    const result = buildResult({ ...base, target, partialReasons: [], findings: [] });
+    expect(result.target).toBe('https://www.example.in/');
+    expect(() => assertRedacted(result)).not.toThrow();
+  });
 });
 
 describe('buildResult info order', () => {
