@@ -99,6 +99,8 @@ export interface ScanCollection {
   baseline: CaptureSnapshot;
   afterReject?: CaptureSnapshot;
   afterAccept?: CaptureSnapshot;
+  /** The baseline context after the extra pages; requests carry the page they came from. */
+  allPages?: CaptureSnapshot;
   banner?: BannerInfo;
   /** Clicks the reject run needed (2 when reject sat behind a settings layer). */
   rejectClicks?: number;
@@ -313,6 +315,7 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
       if (!pageVisit) break;
       if (pageVisit.status === 'loaded') await inspectPage(base.page, page.url);
     }
+    collection.allPages = await base.capture.snapshot('all-pages');
     return collection;
   } catch (err) {
     // Contexts closed by the scan timeout make later steps throw; report what we have.
@@ -335,6 +338,7 @@ function checkContext(collection: ScanCollection, trackers: TrackerLookup): Chec
     baseline: collection.baseline,
     ...(collection.afterReject ? { afterReject: collection.afterReject } : {}),
     ...(collection.afterAccept ? { afterAccept: collection.afterAccept } : {}),
+    ...(collection.allPages ? { allPages: collection.allPages } : {}),
     ...(collection.banner ? { banner: collection.banner } : {}),
     ...(collection.rejectClicks !== undefined ? { rejectClicks: collection.rejectClicks } : {}),
     persistentControlFoundOn: collection.persistentControlFoundOn,

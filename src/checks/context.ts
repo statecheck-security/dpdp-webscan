@@ -23,6 +23,8 @@ export interface CheckContext {
   /** Undefined when no banner or no reject control was clicked. */
   afterReject?: CaptureSnapshot;
   afterAccept?: CaptureSnapshot;
+  /** Baseline context after every scanned page, no click; undefined if the scan ran out of time first. */
+  allPages?: CaptureSnapshot;
   banner?: BannerInfo;
   /** Clicks the reject run needed; undefined when no reject (or save) control was reached. */
   rejectClicks?: number;
