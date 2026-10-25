@@ -1,0 +1,12 @@
+<!-- Exercises: the robots.txt fetch page stays out of the capture (fix 2026-10-25). /robots.txt is served as the site's HTML app, as catch-all routes do; its scripts would load a tracker pixel and fetch the tracker host. The fetch page loads only its own document, the scan records no request from it, and an HTML robots.txt still means no rules, so /privacy is visited. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Robots serves the app</title>
+  </head>
+  <body>
+    <p>An ordinary page.</p>
+    <a href="/privacy">Privacy Policy</a>
+  </body>
+</html>

@@ -276,14 +276,27 @@ export function robotsPolicy(fetched: RobotsFetch): (url: URL) => boolean {
  * The production FetchRobots: loads `<origin>/robots.txt` in a new page of an
  * existing hardened context, so both SSRF layers apply. Call it after the
  * baseline snapshot, so the request is not counted as part of the first load.
+ *
+ * The fetch page is not a page we scan. A catch-all route can serve the site's
+ * app at /robots.txt, whose scripts would then load in it (seen on a real scan,
+ * 2026-10-25), so the page loads only its own document: every other request is
+ * aborted, and `exclude` gets the page before it loads so the caller's capture
+ * leaves it out.
  */
 export function contextRobotsFetcher(
   context: BrowserContext,
-  opts: { blocked: BlockedRequest[]; timeoutMs?: number },
+  opts: { blocked: BlockedRequest[]; timeoutMs?: number; exclude?: (page: Page) => void },
 ): FetchRobots {
   return async (origin) => {
     const page = await context.newPage();
     try {
+      opts.exclude?.(page);
+      // Page routes run before the context's, so the document still goes through the route guard.
+      await page.route('**/*', (route) => {
+        const request = route.request();
+        const ownDocument = request.isNavigationRequest() && request.frame() === page.mainFrame();
+        return ownDocument ? route.fallback() : route.abort('blockedbyclient');
+      });
       const outcome = await loadPage(page, `${origin}/robots.txt`, {
         blocked: opts.blocked,
         timeoutMs: opts.timeoutMs ?? PAGE_TIMEOUT_MS,

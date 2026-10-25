@@ -106,6 +106,19 @@ describe('collectScan', () => {
     expect(collection.partialReasons).toEqual([]);
   });
 
+  it("records nothing from the robots.txt fetch page, even when it serves the site's app", async () => {
+    const { options } = scanOf('robots-serves-app');
+    const collection = await collectScan(target, options);
+    expect(collection.pages.map((p) => [p.reason, p.status])).toEqual([
+      ['requested', 'loaded'],
+      ['privacy', 'loaded'],
+    ]);
+    expect(collection.allPages?.requests.map((r) => `${r.host} ${r.pageUrl}`).sort()).toEqual([
+      'site.fixture.in https://site.fixture.in/',
+      'site.fixture.in https://site.fixture.in/privacy',
+    ]);
+  });
+
   it('visits no extra page when robots.txt is unreachable', async () => {
     const { options } = scanOf('clean', { fetchRobots: () => Promise.resolve({ status: 'unreachable' }) });
     const collection = await collectScan(target, options);

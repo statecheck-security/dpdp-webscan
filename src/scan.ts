@@ -315,7 +315,9 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
     if (found) collection.banner = found;
     await inspectPage(base.page, first.url);
     // robots.txt before choosing pages, so a disallowed page never takes a free slot (WS-3g).
-    const fetchRobots = opts.fetchRobots ?? contextRobotsFetcher(base.context, { blocked: base.blocked });
+    const fetchRobots =
+      opts.fetchRobots ??
+      contextRobotsFetcher(base.context, { blocked: base.blocked, exclude: (page) => base.capture.exclude(page) });
     const unreachable: RobotsFetch = { status: 'unreachable' };
     const robots = robotsPolicy(await guarded('robots', () => fetchRobots(site.origin), unreachable));
     const chosen = await guarded('discover', () => discoverPages(base.page, site, robots), []);
