@@ -18,7 +18,7 @@ import {
 import type { PageText } from '../text.js';
 import type { Finding, PageReason } from '../types.js';
 import type { CheckContext } from './context.js';
-import { quoteOf } from './evidence.js';
+import { maskContacts, quoteOf } from './evidence.js';
 
 export interface PublishedPage {
   url: string;
@@ -113,15 +113,10 @@ export function periodDays(amount: string, qualifier: string | undefined, unit: 
   return qualifier && /working|business/i.test(qualifier) ? Math.ceil((base * 7) / 5) : base;
 }
 
-/** Contact details never reach a quote (ground rule 3). */
-function mask(sentence: string): string {
-  return sentence.replace(/\S+@\S+/g, '[email]').replace(/\+?\d[\d\s()-]{7,}\d/g, '[number]');
-}
-
-/** Up to 25 words around the match: 12 before it, the rest from it. */
+/** Up to 25 words around the match: 12 before it, the rest from it. Masked first, so the word count holds. */
 function quoteAround(sentence: string, index: number): string {
-  const before = mask(sentence.slice(0, index)).split(/\s+/).filter(Boolean);
-  const after = mask(sentence.slice(index)).split(/\s+/).filter(Boolean);
+  const before = maskContacts(sentence.slice(0, index)).split(/\s+/).filter(Boolean);
+  const after = maskContacts(sentence.slice(index)).split(/\s+/).filter(Boolean);
   return quoteOf([...(before.length > 12 ? ['…'] : []), ...before.slice(-12), ...after].join(' '));
 }
 

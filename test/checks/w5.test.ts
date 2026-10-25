@@ -38,6 +38,13 @@ describe('detectW5', () => {
     expect(detectW5(context())).toBeUndefined();
   });
 
+  it('masks an email or phone number in the quoted sentence, so the result stays redacted', () => {
+    const text = 'By continuing to browse you agree; write to privacy@example.in or call +91 80 0000 0000.';
+    expect(detectW5(withText(text))?.evidence.quote).toBe(
+      'By continuing to browse you agree; write to [email] or call [number].',
+    );
+  });
+
   it('cuts a quote to 25 words', () => {
     const long = Array.from({ length: 40 }, (_, i) => `w${i}`).join(' ');
     expect(quoteOf(long).split(' ')).toHaveLength(26);
