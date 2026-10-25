@@ -160,6 +160,13 @@ export const RIGHTS_MEANS: readonly RegExp[] = [
 /** W14: words that tie a period to grievances, when the page itself is not a grievance page. */
 export const GRIEVANCE_WORDS = /\bgrievances?\b|\bcomplaints?\b|\bredress(al)?\b/i;
 
+/**
+ * W14: words just before a period that make it the time to respond to or resolve a grievance, rather
+ * than to acknowledge one or to keep records ("we resolve complaints within 30 days").
+ */
+export const RESPONSE_WORDS =
+  /\b(resol(ve|ved|ves|ving|ution)|respon(d|ds|ded|ding|se)|redress(ed|al)?|dispos(e|ed|al)|address(ed|ing)|repl(y|ies|ied)|decid(e|ed)|decision|settle(d|ment)?|clos(e|ed|ure))\b/i;
+
 /** Number words W14 understands in a period ("within thirty days"); src/checks/published.ts builds its pattern from them. */
 export const NUMBER_WORDS: Readonly<Record<string, number>> = {
   one: 1,

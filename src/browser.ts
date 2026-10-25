@@ -20,6 +20,12 @@ export type { BlockedRequest } from './egress.js';
 
 export const PAGE_TIMEOUT_MS = 20_000;
 export const MAX_REDIRECTS = 5;
+/**
+ * After `load`, how long we wait for the network to go idle. Sites with chat widgets or analytics
+ * beacons never go idle, and waiting the full page budget on each load left no time for the policy
+ * pages (review, 2026-10-25).
+ */
+export const IDLE_WAIT_MS = 5_000;
 const CLOSE_GRACE_MS = 2_000;
 
 export const UA_SUFFIX = 'StateCheckScan/1 (+https://statechecksecurity.com/scan)';
@@ -143,8 +149,8 @@ export function isBotWall(httpStatus: number, headers: Record<string, string>, t
 
 /**
  * Load a page once within `timeoutMs`: wait for `load`, then for network idle
- * with whatever time is left. A page that never goes idle (polling SPAs) still
- * counts as loaded, with `settled: false`. We never reload, because a second
+ * for up to IDLE_WAIT_MS of whatever time is left. A page that never goes idle
+ * (polling SPAs, chat widgets) still counts as loaded, with `settled: false`. We never reload, because a second
  * load would double every tracker request the capture records.
  *
  * Pass the context's `blocked` list so a navigation the guard refused is
@@ -183,7 +189,7 @@ export async function loadPage(
     return refusal ? { status: 'blocked', reason: refusal.reason } : { status: 'error' };
   }
   const withStatus = httpStatus === undefined ? {} : { httpStatus };
-  const remaining = deadline - Date.now();
+  const remaining = Math.min(deadline - Date.now(), IDLE_WAIT_MS);
   if (remaining <= 0) return { status: 'loaded', ...withStatus, settled: false };
   try {
     await page.waitForLoadState('networkidle', { timeout: remaining });

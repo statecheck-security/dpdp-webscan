@@ -106,4 +106,13 @@ describe('buildInfo', () => {
     const ctx = context({ texts: new Map([[PAGE, text('We resolve grievances within 120 days.')]]) });
     expect(buildInfo(ctx).at(-1)?.evidence.found).toEqual([]);
   });
+
+  it('counts W14 as found from the response period, not a longer record-keeping one', () => {
+    const ctx = context({
+      texts: new Map([
+        [PAGE, text('We resolve complaints within 30 days. Complaint records are kept for up to 6 months.')],
+      ]),
+    });
+    expect(buildInfo(ctx).at(-1)?.evidence.found).toEqual([{ id: 'W14', pageUrl: PAGE }]);
+  });
 });

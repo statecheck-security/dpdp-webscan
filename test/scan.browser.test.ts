@@ -9,7 +9,9 @@ import { RedactionError } from '../src/result.js';
 import { collectScan, runScan } from '../src/scan.js';
 import type { PageInspectors, ScanOptions } from '../src/scan.js';
 import { ENGINE_VERSION } from '../src/types.js';
-import { fixtureScanOptions, SITE } from './fixtures.js';
+import { clickAccept, clickReject } from '../src/banner.js';
+import { extractText } from '../src/text.js';
+import { fixtureScanOptions, serveFixtureHttp, SITE } from './fixtures.js';
 
 let browser: Browser;
 
@@ -390,5 +392,69 @@ describe('page slots on fixtures', () => {
     ]);
     expect(ids(result)).toEqual(['W11']);
     expect(result.findings[0]?.evidence.form?.pageUrl).toBe('https://site.fixture.in/assessment');
+  });
+});
+
+// Review fixes (2026-10-25): landing site, recorded URLs, step order.
+describe('review fixes on fixtures', () => {
+  it('follows the site a requested URL redirects to on another domain', async () => {
+    const server = await serveFixtureHttp('redirect-other-domain');
+    try {
+      const { options, routing } = scanOf('redirect-other-domain');
+      options.contextOptions = { install: routing.install, dial: server.dial };
+      const result = await runScan(new URL('http://site.fixture.in/'), options);
+      expect(result.pages.map((p) => [p.url, p.reason, p.status])).toEqual([
+        ['http://site.fixture.in/', 'requested', 'loaded'],
+        ['http://www.moved-fixture.in/privacy', 'privacy', 'loaded'],
+      ]);
+      // The landing site's session cookie is first party there, so it is a site cookie and not W2.
+      expect(result.findings.map((f) => f.id)).not.toContain('W2');
+      expect(result.info.find((i) => i.id === 'site-cookies')?.evidence.identifiers).toEqual([
+        { name: 'PHPSESSID', domain: 'www.moved-fixture.in', store: 'cookie', firstParty: true },
+      ]);
+      expect(result.findings.map((f) => f.id)).not.toContain('W12');
+      expect(JSON.stringify(result)).not.toContain('SECRET-VALUE-DO-NOT-RECORD');
+      expect(routing.unrouted).toEqual([]);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('records a requested URL without its query string, so a click id cannot fail the result', async () => {
+    const result = await runScan(new URL(`${SITE}?gclid=Cj0KCQjwAAAAAAAAAAAAAAAA`), scanOf('clean').options);
+    expect(result.target).toBe(SITE);
+    expect(result.pages[0]?.url).toBe(SITE);
+    expect(result.findings).toEqual([]);
+  });
+
+  it('visits the extra pages before the accept run, so the policy pages get the budget first', async () => {
+    const steps: string[] = [];
+    const { options } = scanOf('clean', {
+      inspectors: {
+        extractText: async (page) => {
+          steps.push(`text ${new URL(page.url()).pathname}`);
+          return extractText(page);
+        },
+        clickReject: async (page, found) => {
+          steps.push('reject');
+          return clickReject(page, found);
+        },
+        clickAccept: async (page, found) => {
+          steps.push('accept');
+          return clickAccept(page, found);
+        },
+      },
+    });
+    const collection = await collectScan(target, options);
+    expect(steps).toEqual([
+      'text /',
+      'reject',
+      'text /privacy',
+      'text /cookies',
+      'text /contact',
+      'text /grievance',
+      'accept',
+    ]);
+    expect(collection.afterAccept).toBeDefined();
   });
 });

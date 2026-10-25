@@ -1,7 +1,16 @@
 // WS-3b: hardened context, route guard and egress proxy, against local fixtures only.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Browser } from 'playwright';
-import { evaluateIn, killBrowser, launchBrowser, loadPage, newHardenedContext, UA_SUFFIX } from '../src/browser.js';
+import {
+  evaluateIn,
+  IDLE_WAIT_MS,
+  killBrowser,
+  launchBrowser,
+  loadPage,
+  newHardenedContext,
+  PAGE_TIMEOUT_MS,
+  UA_SUFFIX,
+} from '../src/browser.js';
 import type { HardenedContextOptions } from '../src/browser.js';
 import { silentLog } from '../src/log.js';
 import { fixtureContextOptions, noNetworkDial, serveFixtureHttp, SITE } from './fixtures.js';
@@ -120,6 +129,15 @@ describe('loadPage', () => {
     const started = Date.now();
     const outcome = await loadPage(page, SITE, { blocked, timeoutMs: 2_000 });
     expect(Date.now() - started).toBeLessThan(4_000);
+    expect(outcome).toMatchObject({ status: 'loaded', settled: false });
+    await context.close();
+  });
+
+  it('waits at most IDLE_WAIT_MS for idle after load, even with page budget left', async () => {
+    const { context, page, blocked } = await open('never-settles');
+    const started = Date.now();
+    const outcome = await loadPage(page, SITE, { blocked, timeoutMs: PAGE_TIMEOUT_MS });
+    expect(Date.now() - started).toBeLessThan(IDLE_WAIT_MS + 3_000);
     expect(outcome).toMatchObject({ status: 'loaded', settled: false });
     await context.close();
   });

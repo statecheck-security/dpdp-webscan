@@ -14,6 +14,7 @@ import type { BrowserContext, Request } from 'playwright';
 import { evaluateIn, withTimeout } from './browser.js';
 import type { BlockedRequest } from './egress.js';
 import { registrableDomain } from './pages.js';
+import { pageUrlOfString } from './urls.js';
 
 /** Bounds on what one context can make us hold in memory. */
 const MAX_REQUESTS = 10_000;
@@ -26,7 +27,7 @@ export type SnapshotLabel = 'baseline' | 'after-reject' | 'after-accept' | 'all-
 
 export interface CapturedRequest {
   host: string;
-  /** Top-level page the request was made from: origin and path, no query or hash. */
+  /** Top-level page the request was made from, recorded like every page URL (src/urls.ts). */
   pageUrl: string;
   resourceType: string;
   isThirdParty: boolean;
@@ -76,6 +77,12 @@ export interface CaptureMark {
 export interface Capture {
   mark: () => Promise<CaptureMark>;
   snapshot: (label: SnapshotLabel, since?: CaptureMark) => Promise<CaptureSnapshot>;
+  /**
+   * The site the scan landed on, when the requested URL redirected to another registrable domain
+   * (src/scan.ts). First and third party are decided at snapshot time, so requests already recorded
+   * are classified against it too.
+   */
+  rebase: (registrableDomain: string) => void;
   detach: () => void;
 }
 
@@ -90,24 +97,16 @@ export function isThirdParty(host: string, siteDomain: string): boolean {
   return registrableDomain(host) !== siteDomain;
 }
 
-/** Origin plus path, so query strings and fragments (which can carry identifiers) are never kept. */
-function pageAddress(url: string): string | undefined {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return undefined;
-    return `${parsed.origin}${parsed.pathname}`;
-  } catch {
-    return undefined;
-  }
-}
-
-/** The top-level page a request belongs to. A main-frame navigation belongs to the page it loads. */
+/**
+ * The top-level page a request belongs to, recorded like every page URL (src/urls.ts: no fragment, no
+ * identifier-carrying query). A main-frame navigation belongs to the page it loads.
+ */
 function pageOf(request: Request): string | undefined {
   try {
     const frame = request.frame();
     const page = frame.page();
-    if (request.isNavigationRequest() && frame === page.mainFrame()) return pageAddress(request.url());
-    return pageAddress(page.url());
+    if (request.isNavigationRequest() && frame === page.mainFrame()) return pageUrlOfString(request.url());
+    return pageUrlOfString(page.url());
   } catch {
     // Service-worker requests have no frame; workers are blocked, so this is rare.
     return undefined;
@@ -130,8 +129,8 @@ interface FrameStorage {
 
 export function attachCapture(context: BrowserContext, opts: CaptureOptions): Capture {
   const now = opts.now ?? (() => new Date());
-  const siteDomain = opts.registrableDomain;
-  const requests: CapturedRequest[] = [];
+  let siteDomain = opts.registrableDomain;
+  const requests: Omit<CapturedRequest, 'isThirdParty'>[] = [];
   let dropped = 0;
 
   const onRequest = (request: Request): void => {
@@ -146,12 +145,10 @@ export function attachCapture(context: BrowserContext, opts: CaptureOptions): Ca
       dropped += 1;
       return;
     }
-    const host = url.hostname.toLowerCase();
     requests.push({
-      host,
+      host: url.hostname.toLowerCase(),
       pageUrl: pageOf(request) ?? '',
       resourceType: request.resourceType(),
-      isThirdParty: isThirdParty(host, siteDomain),
     });
   };
   context.on('request', onRequest);
@@ -199,7 +196,7 @@ export function attachCapture(context: BrowserContext, opts: CaptureOptions): Ca
       ),
     );
     return (await Promise.all(reads)).filter(
-      (s): s is FrameStorage => s !== undefined && s.origin !== 'null' && pageAddress(s.origin) !== undefined,
+      (s): s is FrameStorage => s !== undefined && s.origin !== 'null' && pageUrlOfString(s.origin) !== undefined,
     );
   }
 
@@ -244,7 +241,7 @@ export function attachCapture(context: BrowserContext, opts: CaptureOptions): Ca
         const id = `${r.host} ${r.pageUrl} ${r.resourceType}`;
         const entry = counts.get(id);
         if (entry) entry.count += 1;
-        else counts.set(id, { ...r, count: 1 });
+        else counts.set(id, { ...r, isThirdParty: isThirdParty(r.host, siteDomain), count: 1 });
       }
 
       const nowSeconds = taken.getTime() / 1000;
@@ -274,6 +271,10 @@ export function attachCapture(context: BrowserContext, opts: CaptureOptions): Ca
           };
         }),
       };
+    },
+
+    rebase(domain) {
+      siteDomain = domain;
     },
 
     detach() {

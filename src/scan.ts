@@ -3,15 +3,19 @@
  * No detection logic lives here (CLAUDE.md, decision 7); every "is this a
  * tracker / banner / form" question belongs to the module that owns it.
  *
- *  1. Baseline context: load the target, snapshot before any interaction,
+ *  1. Baseline context: load the target, re-base on the site it landed on if
+ *     it redirected to another domain, snapshot before any interaction,
  *     find the banner (no click), inspect the page, read robots.txt (after
  *     the snapshot, so it is not part of the first load), then choose up to
  *     4 extra pages: policy pages first, likely form pages and other links in
  *     the free slots (WS-3g).
- *  2. If a banner was found: a fresh context per choice, mark, click reject
- *     (then accept), wait, snapshot what happened after the click.
+ *  2. If a banner was found: a fresh context, mark, click reject, wait,
+ *     snapshot what happened after the click.
  *  3. Extra pages in the baseline context (no clicks there), robots.txt honoured.
- *  4. Checks, then the result.
+ *  4. If a banner was found: the same for accept. Last, because no check reads
+ *     it yet; before the extra pages, it took the budget the policy pages need
+ *     (review, 2026-10-25).
+ *  5. Checks, then the result.
  *
  * Budget: 20 s per page and 90 s per scan; each page gets what is left of the
  * scan budget, capped at 20 s. Anything that times out or is blocked is
@@ -36,12 +40,20 @@ import { parseTarget } from './guard.js';
 import type { Lookup } from './guard.js';
 import { log as defaultLog } from './log.js';
 import type { Logger } from './log.js';
-import { contextRobotsFetcher, discoverPages, MAX_EXTRA_PAGES, registrableDomain, robotsPolicy } from './pages.js';
+import {
+  contextRobotsFetcher,
+  discoverPages,
+  landedSite,
+  MAX_EXTRA_PAGES,
+  registrableDomain,
+  robotsPolicy,
+} from './pages.js';
 import type { FetchRobots, RobotsFetch } from './pages.js';
 import { assertRedacted, buildResult } from './result.js';
 import { extractText } from './text.js';
 import type { ExtractText, PageText } from './text.js';
 import type { PageReason, PageStatus, PageVisit, PartialReason, ScanResult } from './types.js';
+import { pageUrlOfString } from './urls.js';
 
 export const SCAN_TIMEOUT_MS = 90_000;
 export const MAX_PAGES = 1 + MAX_EXTRA_PAGES;
@@ -156,7 +168,9 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
   const reserveMs = Math.min(RESERVE_MS, scanTimeoutMs / 10);
   const deadline = Date.now() + scanTimeoutMs;
   const signal = AbortSignal.any([AbortSignal.timeout(scanTimeoutMs), ...(opts.signal ? [opts.signal] : [])]);
-  const siteDomain = registrableDomain(target.hostname);
+  // The site the scan follows: the target, or where it landed (landedSite). Contexts opened later use it.
+  let site = target;
+  let siteDomain = registrableDomain(target.hostname);
   const reasons = new Set<PartialReason>();
   const startedAt = now();
 
@@ -218,7 +232,7 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
     const started = Date.now();
     const outcome = await loadPage(ctx.page, url, { blocked: ctx.blocked, timeoutMs });
     const pageVisit: PageVisit = {
-      url,
+      url: pageUrlOfString(url) ?? url,
       reason,
       status: STATUS[outcome.status],
       ...('httpStatus' in outcome && outcome.httpStatus !== undefined ? { httpStatus: outcome.httpStatus } : {}),
@@ -286,27 +300,33 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
     // Step 1: baseline.
     const base = await open();
     const first = await visit(base, target.href, 'requested');
+    const landed = first?.status === 'loaded' ? landedSite(base.page.url(), target) : undefined;
+    if (landed) {
+      log('site-rebased', { from: siteDomain, to: registrableDomain(landed.hostname) });
+      site = landed;
+      siteDomain = registrableDomain(landed.hostname);
+      collection.registrableDomain = siteDomain;
+      base.capture.rebase(siteDomain);
+    }
     collection.baseline = await base.capture.snapshot('baseline');
-    if (first?.status !== 'loaded') return collection;
+    if (!first || first.status !== 'loaded') return collection;
 
     const found = await guarded('banner', () => inspect.findBanner(base.page), undefined);
     if (found) collection.banner = found;
-    await inspectPage(base.page, target.href);
+    await inspectPage(base.page, first.url);
     // robots.txt before choosing pages, so a disallowed page never takes a free slot (WS-3g).
     const fetchRobots = opts.fetchRobots ?? contextRobotsFetcher(base.context, { blocked: base.blocked });
     const unreachable: RobotsFetch = { status: 'unreachable' };
-    const robots = robotsPolicy(await guarded('robots', () => fetchRobots(target.origin), unreachable));
-    const chosen = await guarded('discover', () => discoverPages(base.page, target, robots), []);
+    const robots = robotsPolicy(await guarded('robots', () => fetchRobots(site.origin), unreachable));
+    const chosen = await guarded('discover', () => discoverPages(base.page, site, robots), []);
 
-    // Step 2: reject, then accept, each in its own fresh context.
+    // Step 2: reject, in its own fresh context.
     if (collection.banner) {
       const afterReject = await interaction('after-reject', inspect.clickReject);
       if (afterReject) {
         collection.afterReject = afterReject.snapshot;
         collection.rejectClicks = afterReject.clicks;
       }
-      const afterAccept = await interaction('after-accept', inspect.clickAccept);
-      if (afterAccept) collection.afterAccept = afterAccept.snapshot;
     }
 
     // Step 3: extra pages, in the baseline context (no clicks happen there).
@@ -317,9 +337,15 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
       }
       const pageVisit = await visit(base, page.url, page.reason);
       if (!pageVisit) break;
-      if (pageVisit.status === 'loaded') await inspectPage(base.page, page.url);
+      if (pageVisit.status === 'loaded') await inspectPage(base.page, pageVisit.url);
     }
     collection.allPages = await base.capture.snapshot('all-pages');
+
+    // Step 4: accept, in its own fresh context.
+    if (collection.banner) {
+      const afterAccept = await interaction('after-accept', inspect.clickAccept);
+      if (afterAccept) collection.afterAccept = afterAccept.snapshot;
+    }
     return collection;
   } catch (err) {
     // Contexts closed by the scan timeout make later steps throw; report what we have.

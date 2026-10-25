@@ -1,7 +1,15 @@
 // WS-3c: same-site rules (registrable domain from the hand-kept suffix list).
 // WS-3d: choosing the extra pages, and robots.txt.
 import { describe, expect, it } from 'vitest';
-import { parseRobots, pickPages, registrableDomain, robotsAllows, robotsPolicy, sameSite } from '../src/pages.js';
+import {
+  landedSite,
+  parseRobots,
+  pickPages,
+  registrableDomain,
+  robotsAllows,
+  robotsPolicy,
+  sameSite,
+} from '../src/pages.js';
 import type { PageLink } from '../src/pages.js';
 
 describe('registrableDomain', () => {
@@ -64,6 +72,19 @@ describe('pickPages', () => {
       { url: 'https://www.example.co.in/cookie-policy', reason: 'cookies' },
       { url: 'https://www.example.co.in/contact', reason: 'contact' },
       { url: 'https://www.example.co.in/grievance', reason: 'grievance' },
+    ]);
+  });
+
+  it('keeps pages a front controller picks by query (WordPress plain permalinks)', () => {
+    const wp = new URL('https://shop.in/');
+    const links = [
+      link('https://shop.in/?page_id=3', 'Privacy Policy'),
+      link('https://shop.in/?page_id=7', 'Contact'),
+      link('https://shop.in/?utm_source=nav', 'Home'),
+    ];
+    expect(pickPages(links, wp)).toEqual([
+      { url: 'https://shop.in/?page_id=3', reason: 'privacy' },
+      { url: 'https://shop.in/?page_id=7', reason: 'contact' },
     ]);
   });
 
@@ -172,6 +193,22 @@ describe('pickPages', () => {
       link('https://example.co.in/', 'Home'),
     ];
     expect(pickPages(links, target)).toEqual([{ url: 'https://example.co.in/about', reason: 'other' }]);
+  });
+});
+
+describe('landedSite', () => {
+  const target = new URL('https://brand.in/');
+
+  it('is the final URL when the requested one redirected to another registrable domain', () => {
+    expect(landedSite('https://www.brand.com/home?x=1', target)?.href).toBe('https://www.brand.com/home?x=1');
+  });
+
+  it.each([
+    ['https://www.brand.in/', 'same registrable domain'],
+    ['https://brand.com:8443/', 'a port the guard refuses'],
+    ['chrome-error://chromewebdata/', 'not http(s)'],
+  ])('is undefined for %s (%s)', (href) => {
+    expect(landedSite(href, target)).toBeUndefined();
   });
 });
 

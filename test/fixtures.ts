@@ -37,10 +37,14 @@ const PRIVATE_HOSTS: Record<string, string> = {
  */
 export const THIRD_PARTY_DOMAINS = ['tracker-fixture.in', 'replay-fixture.in', 'forms-fixture.in', 'cmp-fixture.in'];
 
+/** The site itself under another registrable domain: where a redirected requested URL lands (redirect-other-domain). */
+export const MOVED_SITE_DOMAIN = 'moved-fixture.in';
+
 export function isFixtureHost(hostname: string): boolean {
   const host = hostname.toLowerCase();
   return (
-    host.endsWith('.fixture.in') || THIRD_PARTY_DOMAINS.some((domain) => host === domain || host.endsWith(`.${domain}`))
+    host.endsWith('.fixture.in') ||
+    [...THIRD_PARTY_DOMAINS, MOVED_SITE_DOMAIN].some((domain) => host === domain || host.endsWith(`.${domain}`))
   );
 }
 

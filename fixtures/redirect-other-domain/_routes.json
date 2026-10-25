@@ -1,0 +1,3 @@
+{
+  "site.fixture.in/": { "status": 302, "headers": { "location": "http://www.moved-fixture.in/" } }
+}

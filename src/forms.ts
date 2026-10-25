@@ -12,6 +12,7 @@ import type { Page } from 'playwright';
 import { evaluateIn } from './browser.js';
 import { CONSENT_CHECKBOX, PERSONAL_AUTOCOMPLETE, PERSONAL_FIELD, SEARCH_FIELD } from './data/keywords.js';
 import { registrableDomain } from './pages.js';
+import { pageUrlOf } from './urls.js';
 
 export interface FormField {
   type: string;
@@ -30,7 +31,7 @@ export interface FormCheckbox {
 }
 
 export interface FormInfo {
-  /** Origin and path of the page the form is on. */
+  /** The page the form is on, recorded like every page URL (src/urls.ts). */
   pageUrl: string;
   method: 'get' | 'post' | 'dialog';
   actionHost?: string;
@@ -142,12 +143,6 @@ function inPage(a: InPageArgs): InPageForm[] {
   return forms;
 }
 
-/** Origin and path only, like every page URL the engine records. */
-function pageAddress(url: string): string {
-  const parsed = new URL(url);
-  return `${parsed.origin}${parsed.pathname}`;
-}
-
 function toFormInfo(pageUrl: string, form: InPageForm): FormInfo {
   const method = form.method === 'post' || form.method === 'dialog' ? form.method : 'get';
   let action: URL | undefined;
@@ -171,7 +166,8 @@ function toFormInfo(pageUrl: string, form: InPageForm): FormInfo {
 }
 
 export const inspectForms: InspectForms = async (page) => {
-  const pageUrl = pageAddress(page.url());
+  // Recorded like every page URL the engine keeps (src/urls.ts).
+  const pageUrl = pageUrlOf(new URL(page.url()));
   const forms = await evaluateIn(page, inPage, {
     personalField: pattern(PERSONAL_FIELD),
     personalAutocomplete: pattern(PERSONAL_AUTOCOMPLETE),

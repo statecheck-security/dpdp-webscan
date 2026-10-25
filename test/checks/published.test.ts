@@ -196,6 +196,29 @@ describe('W14 periods', () => {
     });
   });
 
+  it('marks a period as a response period only when response wording sits just before it', () => {
+    const found = grievancePeriods(page('We acknowledge every grievance within 2 days and resolve it within 30 days.'));
+    expect(found.map((p) => [p.days, p.response])).toEqual([
+      [2, false],
+      [30, true],
+    ]);
+  });
+
+  it('W14 lets a response period decide over a longer period that is not one', () => {
+    const ctx = withPages([
+      {
+        text: 'We resolve complaints within 30 days.\nWe keep complaint records for up to 6 months.',
+        reason: 'grievance',
+      },
+    ]);
+    expect(detectW14(ctx)).toBeUndefined();
+  });
+
+  it('W14 falls back to the longest period when none reads as a response period', () => {
+    const ctx = withPages([{ text: 'Grievances: within 30 days. Complaint records: up to 6 months.' }]);
+    expect(detectW14(ctx)?.evidence.quote).toBe('Complaint records: up to 6 months.');
+  });
+
   it('W14 quotes at most 25 words', () => {
     const filler = Array.from({ length: 30 }, (_, i) => `w${i}`).join(' ');
     const [found] = grievancePeriods(page(`${filler} grievances are resolved within 200 days ${filler}.`));
