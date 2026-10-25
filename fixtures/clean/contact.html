@@ -7,6 +7,16 @@
   <body>
     <h1>Contact us</h1>
     <p>For privacy questions, write to <a href="mailto:privacy@example.in">privacy@example.in</a>.</p>
+    <!-- The negative for W6 and W8–W11: personal fields, POST, same-site https action, the box left unticked. -->
+    <form method="post" action="/contact">
+      <label>Name <input type="text" name="full_name" autocomplete="name" /></label>
+      <label>Email <input type="email" name="email" autocomplete="email" /></label>
+      <label><input type="checkbox" name="updates" /> Send me occasional updates</label>
+      <button type="submit">Send</button>
+    </form>
+    <form role="search" action="/search">
+      <input type="search" name="q" />
+    </form>
     <a href="#" id="cookie-settings">Cookie settings</a>
   </body>
 </html>

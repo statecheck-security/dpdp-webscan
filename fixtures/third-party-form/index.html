@@ -1,0 +1,20 @@
+<!-- Exercises: W9 (a personal-data form that submits to another company's host). The enquiry form posts to forms-fixture.in; a second form pays through a payment gateway (Razorpay's host), which is never W9. Neither is ever submitted. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Third-party form</title>
+  </head>
+  <body>
+    <h1>Enquire</h1>
+    <form method="post" action="https://forms-fixture.in/f/enquiry">
+      <label>Your name <input type="text" name="name" /></label>
+      <label>Email <input type="email" name="email" /></label>
+      <button type="submit">Send</button>
+    </form>
+    <form method="post" action="https://api.razorpay.com/pay">
+      <label>Email <input type="email" name="email" /></label>
+      <button type="submit">Pay</button>
+    </form>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+<!-- Exercises: W10 (personal-data form not over HTTPS). Scanned as http://site.fixture.in/, so the page itself is plain http; the form posts to the same page. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Plain http form</title>
+  </head>
+  <body>
+    <h1>Register</h1>
+    <form method="post" action="/register">
+      <label>Email <input type="email" name="email" /></label>
+      <label>Phone <input type="tel" name="phone" /></label>
+      <button type="submit">Register</button>
+    </form>
+  </body>
+</html>
