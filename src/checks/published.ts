@@ -6,7 +6,15 @@
  * English only (plan section 1).
  */
 
-import { GRIEVANCE_WORDS, NUMBER_WORDS } from '../data/keywords.js';
+import {
+  BOARD_COMPLAINT,
+  GRIEVANCE_WORDS,
+  NUMBER_WORDS,
+  PRIVACY_CONTACT,
+  RIGHTS_MEANS,
+  WITHDRAW_CONSENT,
+  WITHDRAW_HOW,
+} from '../data/keywords.js';
 import type { PageText } from '../text.js';
 import type { Finding, PageReason } from '../types.js';
 import type { CheckContext } from './context.js';
@@ -45,6 +53,24 @@ export function tableRows(text: string): string[] {
 export function matchesAny(patterns: readonly RegExp[], text: string): boolean {
   return patterns.some((re) => re.test(text));
 }
+
+const explainsWithdrawal = (s: string): boolean => WITHDRAW_CONSENT.test(s) && WITHDRAW_HOW.test(s);
+
+/**
+ * Whether a page publishes each item. The checks emit when no page does; the
+ * coverage info item records the first page that does (WS-5b). W14 is a
+ * period, not a yes/no, so it is in `grievancePeriods`.
+ */
+export const PUBLISHED: Readonly<Record<'W12' | 'W13' | 'W15' | 'W16', (page: PublishedPage) => boolean>> = {
+  // A privacy contact; or a mailto link on a privacy or contact page.
+  W12: (p) =>
+    matchesAny(PRIVACY_CONTACT, p.text.text) ||
+    (p.text.hasMailto && (p.reason === 'privacy' || p.reason === 'contact')),
+  W13: (p) => matchesAny(RIGHTS_MEANS, p.text.text),
+  W15: (p) => matchesAny(BOARD_COMPLAINT, p.text.text),
+  // In one sentence, or one table row (a rights table puts the right and the how side by side).
+  W16: (p) => sentences(p.text.text).some(explainsWithdrawal) || tableRows(p.text.text).some(explainsWithdrawal),
+};
 
 /** An absence finding: undefined when any searched page matches, or when we read no page at all. */
 export function absence(

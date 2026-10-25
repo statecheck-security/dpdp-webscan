@@ -6,7 +6,9 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseTarget, resolvePublic, TargetError } from './guard.js';
+import { RedactionError } from './result.js';
 import { runScan } from './scan.js';
+import type { ScanResult } from './types.js';
 
 async function main(): Promise<number> {
   const input = process.argv[2];
@@ -27,7 +29,17 @@ async function main(): Promise<number> {
     throw err;
   }
 
-  const result = await runScan(target);
+  let result: ScanResult;
+  try {
+    result = await runScan(target);
+  } catch (err) {
+    // runScan refuses a result that is not redacted; nothing reaches disk (CLAUDE.md decision 5).
+    if (err instanceof RedactionError) {
+      console.error(err.message);
+      return 1;
+    }
+    throw err;
+  }
   await mkdir('results', { recursive: true });
   const stamp = result.startedAt.replace(/[:.]/g, '-');
   const file = join('results', `${target.hostname}-${stamp}.json`);

@@ -3,11 +3,10 @@
  * 2.2, S.5(1)(iii), Rule 3(c)(iii)).
  */
 
-import { BOARD_COMPLAINT } from '../data/keywords.js';
 import type { Finding } from '../types.js';
 import type { CheckContext } from './context.js';
-import { absence, matchesAny } from './published.js';
+import { absence, PUBLISHED } from './published.js';
 
 export function detectW15(ctx: CheckContext): Finding | undefined {
-  return absence(ctx, 'W15', (p) => matchesAny(BOARD_COMPLAINT, p.text.text));
+  return absence(ctx, 'W15', PUBLISHED.W15);
 }

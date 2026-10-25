@@ -6,12 +6,10 @@
  * cells).
  */
 
-import { WITHDRAW_CONSENT, WITHDRAW_HOW } from '../data/keywords.js';
 import type { Finding } from '../types.js';
 import type { CheckContext } from './context.js';
-import { absence, sentences, tableRows } from './published.js';
+import { absence, PUBLISHED } from './published.js';
 
 export function detectW16(ctx: CheckContext): Finding | undefined {
-  const explains = (s: string): boolean => WITHDRAW_CONSENT.test(s) && WITHDRAW_HOW.test(s);
-  return absence(ctx, 'W16', (p) => sentences(p.text.text).some(explains) || tableRows(p.text.text).some(explains));
+  return absence(ctx, 'W16', PUBLISHED.W16);
 }
