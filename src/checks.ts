@@ -5,7 +5,7 @@
  * two when `../scs` is checked out (same approach as scs's legal-rules drift check).
  */
 
-export const CATALOGUE_VERSION = '2026-10-25';
+export const CATALOGUE_VERSION = '2026-10-25-r2';
 
 export const CHECK_IDS = [
   'W1', // third-party trackers before any interaction
