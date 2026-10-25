@@ -11,6 +11,7 @@ import {
   GRIEVANCE_WORDS,
   NUMBER_WORDS,
   PRIVACY_CONTACT,
+  RESPONSE_WORDS,
   RIGHTS_MEANS,
   WITHDRAW_CONSENT,
   WITHDRAW_HOW,
@@ -103,7 +104,12 @@ export interface GrievancePeriod {
   /** The sentence around the period, at most 25 words, emails and long numbers masked. */
   quote: string;
   pageUrl: string;
+  /** Response or resolution wording just before the period ("resolved within"), not "acknowledged within". */
+  response: boolean;
 }
+
+/** How far back from a period its response wording may sit, within the sentence and after the previous period. */
+const RESPONSE_LEAD_CHARS = 60;
 
 /** Calendar days; working days count as 7 for every 5. Undefined for a number we do not read. */
 export function periodDays(amount: string, qualifier: string | undefined, unit: string): number | undefined {
@@ -130,12 +136,27 @@ export function grievancePeriods(page: PublishedPage): GrievancePeriod[] {
       GRIEVANCE_WORDS.test(sentence) ||
       (i > 0 && GRIEVANCE_WORDS.test(list[i - 1] ?? ''));
     if (!related) return;
+    let previousEnd = 0;
     for (const m of sentence.matchAll(PERIOD)) {
-      const [, amount, qualifier, unit] = m;
+      const [whole, amount, qualifier, unit] = m;
+      const lead = sentence.slice(Math.max(previousEnd, m.index - RESPONSE_LEAD_CHARS), m.index);
+      previousEnd = m.index + whole.length;
       if (amount === undefined || unit === undefined) continue;
       const days = periodDays(amount, qualifier, unit);
-      if (days !== undefined) out.push({ days, quote: quoteAround(sentence, m.index), pageUrl: page.url });
+      if (days === undefined) continue;
+      out.push({ days, quote: quoteAround(sentence, m.index), pageUrl: page.url, response: RESPONSE_WORDS.test(lead) });
     }
   });
   return out;
+}
+
+/**
+ * The period W14 reads: the longest response period when the pages give one, else the longest of all.
+ * Without the response preference, "complaint records are kept for up to 6 months" next to "we resolve
+ * complaints within 30 days" would make W14 report a period over 90 days (review, 2026-10-25).
+ */
+export function decidingPeriod(periods: readonly GrievancePeriod[]): GrievancePeriod | undefined {
+  const responses = periods.filter((p) => p.response);
+  const pool = responses.length > 0 ? responses : periods;
+  return pool.reduce<GrievancePeriod | undefined>((a, b) => (!a || b.days > a.days ? b : a), undefined);
 }

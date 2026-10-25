@@ -24,7 +24,7 @@ import { isTracking } from '../data/trackers.js';
 import type { Info } from '../types.js';
 import type { CheckContext } from './context.js';
 import { identifiersIn, trackerRequests } from './evidence.js';
-import { grievancePeriods, PUBLISHED, searchedPages } from './published.js';
+import { decidingPeriod, grievancePeriods, PUBLISHED, searchedPages } from './published.js';
 
 const MAX_DAYS = 90;
 
@@ -35,13 +35,9 @@ function found(ctx: CheckContext): NonNullable<Info['evidence']['found']> {
     const page = pages.find(PUBLISHED[id]);
     if (page) out.push({ id, pageUrl: page.url });
   }
-  // W14 counts as found only when the longest period is within 90 days (otherwise it is a finding).
-  const periods = pages.flatMap(grievancePeriods);
-  const longest = periods.reduce<(typeof periods)[number] | undefined>(
-    (a, b) => (!a || b.days > a.days ? b : a),
-    undefined,
-  );
-  if (longest && longest.days <= MAX_DAYS) out.push({ id: 'W14', pageUrl: longest.pageUrl });
+  // W14 counts as found only when the period W14 reads is within 90 days (otherwise it is a finding).
+  const period = decidingPeriod(pages.flatMap(grievancePeriods));
+  if (period && period.days <= MAX_DAYS) out.push({ id: 'W14', pageUrl: period.pageUrl });
   return out.sort((a, b) => Number(a.id.slice(1)) - Number(b.id.slice(1)));
 }
 
