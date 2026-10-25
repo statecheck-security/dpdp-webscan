@@ -17,6 +17,11 @@ import { detectW8 } from './w8.js';
 import { detectW9 } from './w9.js';
 import { detectW10 } from './w10.js';
 import { detectW11 } from './w11.js';
+import { detectW12 } from './w12.js';
+import { detectW13 } from './w13.js';
+import { detectW14 } from './w14.js';
+import { detectW15 } from './w15.js';
+import { detectW16 } from './w16.js';
 
 export type Detector = (ctx: CheckContext) => Finding | undefined;
 
@@ -32,6 +37,11 @@ const DETECTORS: readonly Detector[] = [
   detectW9,
   detectW10,
   detectW11,
+  detectW12,
+  detectW13,
+  detectW14,
+  detectW15,
+  detectW16,
 ];
 
 export function runChecks(ctx: CheckContext): Finding[] {

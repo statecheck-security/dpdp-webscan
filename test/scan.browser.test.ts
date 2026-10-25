@@ -30,6 +30,12 @@ function hosts(snapshot: CaptureSnapshot | undefined): string[] {
   return [...new Set(snapshot?.requests.map((r) => r.host) ?? [])].sort();
 }
 
+/** Finding ids outside W12–W16: a fixture without policy pages is about the other checks (WS-5a). */
+const TEXT_IDS = new Set(['W12', 'W13', 'W14', 'W15', 'W16']);
+function ids(result: { findings: { id: string }[] }): string[] {
+  return result.findings.map((f) => f.id).filter((id) => !TEXT_IDS.has(id));
+}
+
 describe('runScan', () => {
   it('scans fixtures/clean: 5 pages, nothing third party, no findings, not partial', async () => {
     const { options, routing } = scanOf('clean');
@@ -185,7 +191,7 @@ describe('checks on fixtures', () => {
   it('reports W1 and W2 on trackers-before-consent, with names and hosts but no values', async () => {
     const { options } = scanOf('trackers-before-consent');
     const result = await runScan(target, options);
-    expect(result.findings.map((f) => f.id)).toEqual(['W1', 'W2']);
+    expect(ids(result)).toEqual(['W1', 'W2']);
     const [w1, w2] = result.findings;
     expect(w1?.evidence.thirdParties?.map((t) => [t.host, t.vendor, t.category])).toEqual([
       ['tracker-fixture.in', 'Tracker Fixture', 'analytics'],
@@ -205,8 +211,6 @@ describe('checks on fixtures', () => {
 
 // WS-4b: the real banner inspectors on fixtures, reject and accept runs included.
 describe('banner checks on fixtures', () => {
-  const ids = (result: { findings: { id: string }[] }) => result.findings.map((f) => f.id);
-
   it('finds nothing on clean, with its banner clicked both ways', async () => {
     const { options } = scanOf('clean');
     const collection = await collectScan(target, options);
@@ -264,8 +268,6 @@ describe('banner checks on fixtures', () => {
 
 // WS-4c: the real form inspector on fixtures. Forms are read, never submitted.
 describe('form checks on fixtures', () => {
-  const ids = (result: { findings: { id: string }[] }) => result.findings.map((f) => f.id);
-
   it('reads the contact form on clean and finds nothing wrong with it', async () => {
     const collection = await collectScan(target, scanOf('clean').options);
     expect(collection.forms.map((f) => [f.pageUrl, f.method, f.fields.map((x) => x.name)])).toEqual([
@@ -317,5 +319,43 @@ describe('form checks on fixtures', () => {
       method: 'get',
       fields: [{ type: 'email', name: 'email' }],
     });
+  });
+});
+
+// WS-5a: published text on fixtures. Text is matched in the context and never reaches the result.
+describe('text checks on fixtures', () => {
+  const textIds = (result: { findings: { id: string }[] }) =>
+    result.findings.map((f) => f.id).filter((id) => TEXT_IDS.has(id));
+
+  it('finds every published item on policy-complete', async () => {
+    const result = await runScan(target, scanOf('policy-complete').options);
+    expect(textIds(result)).toEqual([]);
+  });
+
+  it('reports W12–W16 when the pages publish none of them, naming the pages searched', async () => {
+    const result = await runScan(target, scanOf('policy-missing-items').options);
+    expect(textIds(result)).toEqual(['W12', 'W13', 'W14', 'W15', 'W16']);
+    const searched = [
+      SITE,
+      'https://site.fixture.in/privacy',
+      'https://site.fixture.in/contact',
+      'https://site.fixture.in/terms',
+    ];
+    for (const f of result.findings) expect(f.evidence).toEqual({ pagesSearched: searched });
+  });
+
+  it('reports W14 with a quote when the longest grievance period is over 90 days', async () => {
+    const result = await runScan(target, scanOf('policy-120-days').options);
+    expect(textIds(result)).toEqual(['W14']);
+    expect(result.findings[0]?.evidence).toEqual({
+      pagesSearched: [SITE, 'https://site.fixture.in/privacy', 'https://site.fixture.in/grievance'],
+      quote: 'We acknowledge every grievance within 2 days and resolve it within one hundred and twenty (120) days.',
+      foundOn: 'https://site.fixture.in/grievance',
+    });
+  });
+
+  it('keeps page text out of the result', async () => {
+    const result = await runScan(target, scanOf('trackers-before-consent').options);
+    expect(JSON.stringify(result)).not.toContain('An ordinary page that tracks');
   });
 });

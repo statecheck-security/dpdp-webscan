@@ -1,7 +1,8 @@
 // W5: consent inferred from browsing, from hand-built contexts.
 import { describe, expect, it } from 'vitest';
 import type { BannerButton } from '../../src/banner.js';
-import { detectW5, quoteOf } from '../../src/checks/w5.js';
+import { quoteOf } from '../../src/checks/evidence.js';
+import { detectW5 } from '../../src/checks/w5.js';
 import { banner, button, context } from './context.js';
 
 const withText = (text: string, buttons: BannerButton[] = [button('accept', 'OK')]) =>
