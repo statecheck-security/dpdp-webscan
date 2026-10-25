@@ -9,6 +9,8 @@ import { RedactionError } from '../src/result.js';
 import { collectScan, runScan } from '../src/scan.js';
 import type { PageInspectors, ScanOptions } from '../src/scan.js';
 import { ENGINE_VERSION } from '../src/types.js';
+import { clickAccept, clickReject } from '../src/banner.js';
+import { extractText } from '../src/text.js';
 import { fixtureScanOptions, SITE } from './fixtures.js';
 
 let browser: Browser;
@@ -390,5 +392,39 @@ describe('page slots on fixtures', () => {
     ]);
     expect(ids(result)).toEqual(['W11']);
     expect(result.findings[0]?.evidence.form?.pageUrl).toBe('https://site.fixture.in/assessment');
+  });
+});
+
+// Review fixes (2026-10-25): landing site, recorded URLs, step order.
+describe('review fixes on fixtures', () => {
+  it('visits the extra pages before the accept run, so the policy pages get the budget first', async () => {
+    const steps: string[] = [];
+    const { options } = scanOf('clean', {
+      inspectors: {
+        extractText: async (page) => {
+          steps.push(`text ${new URL(page.url()).pathname}`);
+          return extractText(page);
+        },
+        clickReject: async (page, found) => {
+          steps.push('reject');
+          return clickReject(page, found);
+        },
+        clickAccept: async (page, found) => {
+          steps.push('accept');
+          return clickAccept(page, found);
+        },
+      },
+    });
+    const collection = await collectScan(target, options);
+    expect(steps).toEqual([
+      'text /',
+      'reject',
+      'text /privacy',
+      'text /cookies',
+      'text /contact',
+      'text /grievance',
+      'accept',
+    ]);
+    expect(collection.afterAccept).toBeDefined();
   });
 });

@@ -8,10 +8,13 @@
  *     the snapshot, so it is not part of the first load), then choose up to
  *     4 extra pages: policy pages first, likely form pages and other links in
  *     the free slots (WS-3g).
- *  2. If a banner was found: a fresh context per choice, mark, click reject
- *     (then accept), wait, snapshot what happened after the click.
+ *  2. If a banner was found: a fresh context, mark, click reject, wait,
+ *     snapshot what happened after the click.
  *  3. Extra pages in the baseline context (no clicks there), robots.txt honoured.
- *  4. Checks, then the result.
+ *  4. If a banner was found: the same for accept. Last, because no check reads
+ *     it yet; before the extra pages, it took the budget the policy pages need
+ *     (review, 2026-10-25).
+ *  5. Checks, then the result.
  *
  * Budget: 20 s per page and 90 s per scan; each page gets what is left of the
  * scan budget, capped at 20 s. Anything that times out or is blocked is
@@ -298,15 +301,13 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
     const robots = robotsPolicy(await guarded('robots', () => fetchRobots(target.origin), unreachable));
     const chosen = await guarded('discover', () => discoverPages(base.page, target, robots), []);
 
-    // Step 2: reject, then accept, each in its own fresh context.
+    // Step 2: reject, in its own fresh context.
     if (collection.banner) {
       const afterReject = await interaction('after-reject', inspect.clickReject);
       if (afterReject) {
         collection.afterReject = afterReject.snapshot;
         collection.rejectClicks = afterReject.clicks;
       }
-      const afterAccept = await interaction('after-accept', inspect.clickAccept);
-      if (afterAccept) collection.afterAccept = afterAccept.snapshot;
     }
 
     // Step 3: extra pages, in the baseline context (no clicks happen there).
@@ -320,6 +321,12 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
       if (pageVisit.status === 'loaded') await inspectPage(base.page, page.url);
     }
     collection.allPages = await base.capture.snapshot('all-pages');
+
+    // Step 4: accept, in its own fresh context.
+    if (collection.banner) {
+      const afterAccept = await interaction('after-accept', inspect.clickAccept);
+      if (afterAccept) collection.afterAccept = afterAccept.snapshot;
+    }
     return collection;
   } catch (err) {
     // Contexts closed by the scan timeout make later steps throw; report what we have.
