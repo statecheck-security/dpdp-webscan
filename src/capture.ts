@@ -76,6 +76,12 @@ export interface CaptureMark {
 export interface Capture {
   mark: () => Promise<CaptureMark>;
   snapshot: (label: SnapshotLabel, since?: CaptureMark) => Promise<CaptureSnapshot>;
+  /**
+   * The site the scan landed on, when the requested URL redirected to another registrable domain
+   * (src/scan.ts). First and third party are decided at snapshot time, so requests already recorded
+   * are classified against it too.
+   */
+  rebase: (registrableDomain: string) => void;
   detach: () => void;
 }
 
@@ -130,8 +136,8 @@ interface FrameStorage {
 
 export function attachCapture(context: BrowserContext, opts: CaptureOptions): Capture {
   const now = opts.now ?? (() => new Date());
-  const siteDomain = opts.registrableDomain;
-  const requests: CapturedRequest[] = [];
+  let siteDomain = opts.registrableDomain;
+  const requests: Omit<CapturedRequest, 'isThirdParty'>[] = [];
   let dropped = 0;
 
   const onRequest = (request: Request): void => {
@@ -146,12 +152,10 @@ export function attachCapture(context: BrowserContext, opts: CaptureOptions): Ca
       dropped += 1;
       return;
     }
-    const host = url.hostname.toLowerCase();
     requests.push({
-      host,
+      host: url.hostname.toLowerCase(),
       pageUrl: pageOf(request) ?? '',
       resourceType: request.resourceType(),
-      isThirdParty: isThirdParty(host, siteDomain),
     });
   };
   context.on('request', onRequest);
@@ -244,7 +248,7 @@ export function attachCapture(context: BrowserContext, opts: CaptureOptions): Ca
         const id = `${r.host} ${r.pageUrl} ${r.resourceType}`;
         const entry = counts.get(id);
         if (entry) entry.count += 1;
-        else counts.set(id, { ...r, count: 1 });
+        else counts.set(id, { ...r, isThirdParty: isThirdParty(r.host, siteDomain), count: 1 });
       }
 
       const nowSeconds = taken.getTime() / 1000;
@@ -274,6 +278,10 @@ export function attachCapture(context: BrowserContext, opts: CaptureOptions): Ca
           };
         }),
       };
+    },
+
+    rebase(domain) {
+      siteDomain = domain;
     },
 
     detach() {

@@ -3,7 +3,8 @@
  * No detection logic lives here (CLAUDE.md, decision 7); every "is this a
  * tracker / banner / form" question belongs to the module that owns it.
  *
- *  1. Baseline context: load the target, snapshot before any interaction,
+ *  1. Baseline context: load the target, re-base on the site it landed on if
+ *     it redirected to another domain, snapshot before any interaction,
  *     find the banner (no click), inspect the page, read robots.txt (after
  *     the snapshot, so it is not part of the first load), then choose up to
  *     4 extra pages: policy pages first, likely form pages and other links in
@@ -39,7 +40,14 @@ import { parseTarget } from './guard.js';
 import type { Lookup } from './guard.js';
 import { log as defaultLog } from './log.js';
 import type { Logger } from './log.js';
-import { contextRobotsFetcher, discoverPages, MAX_EXTRA_PAGES, registrableDomain, robotsPolicy } from './pages.js';
+import {
+  contextRobotsFetcher,
+  discoverPages,
+  landedSite,
+  MAX_EXTRA_PAGES,
+  registrableDomain,
+  robotsPolicy,
+} from './pages.js';
 import type { FetchRobots, RobotsFetch } from './pages.js';
 import { assertRedacted, buildResult } from './result.js';
 import { extractText } from './text.js';
@@ -159,7 +167,9 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
   const reserveMs = Math.min(RESERVE_MS, scanTimeoutMs / 10);
   const deadline = Date.now() + scanTimeoutMs;
   const signal = AbortSignal.any([AbortSignal.timeout(scanTimeoutMs), ...(opts.signal ? [opts.signal] : [])]);
-  const siteDomain = registrableDomain(target.hostname);
+  // The site the scan follows: the target, or where it landed (landedSite). Contexts opened later use it.
+  let site = target;
+  let siteDomain = registrableDomain(target.hostname);
   const reasons = new Set<PartialReason>();
   const startedAt = now();
 
@@ -289,8 +299,16 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
     // Step 1: baseline.
     const base = await open();
     const first = await visit(base, target.href, 'requested');
+    const landed = first?.status === 'loaded' ? landedSite(base.page.url(), target) : undefined;
+    if (landed) {
+      log('site-rebased', { from: siteDomain, to: registrableDomain(landed.hostname) });
+      site = landed;
+      siteDomain = registrableDomain(landed.hostname);
+      collection.registrableDomain = siteDomain;
+      base.capture.rebase(siteDomain);
+    }
     collection.baseline = await base.capture.snapshot('baseline');
-    if (first?.status !== 'loaded') return collection;
+    if (!first || first.status !== 'loaded') return collection;
 
     const found = await guarded('banner', () => inspect.findBanner(base.page), undefined);
     if (found) collection.banner = found;
@@ -298,8 +316,8 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
     // robots.txt before choosing pages, so a disallowed page never takes a free slot (WS-3g).
     const fetchRobots = opts.fetchRobots ?? contextRobotsFetcher(base.context, { blocked: base.blocked });
     const unreachable: RobotsFetch = { status: 'unreachable' };
-    const robots = robotsPolicy(await guarded('robots', () => fetchRobots(target.origin), unreachable));
-    const chosen = await guarded('discover', () => discoverPages(base.page, target, robots), []);
+    const robots = robotsPolicy(await guarded('robots', () => fetchRobots(site.origin), unreachable));
+    const chosen = await guarded('discover', () => discoverPages(base.page, site, robots), []);
 
     // Step 2: reject, in its own fresh context.
     if (collection.banner) {

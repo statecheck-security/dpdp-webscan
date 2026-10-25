@@ -1,7 +1,15 @@
 // WS-3c: same-site rules (registrable domain from the hand-kept suffix list).
 // WS-3d: choosing the extra pages, and robots.txt.
 import { describe, expect, it } from 'vitest';
-import { parseRobots, pickPages, registrableDomain, robotsAllows, robotsPolicy, sameSite } from '../src/pages.js';
+import {
+  landedSite,
+  parseRobots,
+  pickPages,
+  registrableDomain,
+  robotsAllows,
+  robotsPolicy,
+  sameSite,
+} from '../src/pages.js';
 import type { PageLink } from '../src/pages.js';
 
 describe('registrableDomain', () => {
@@ -172,6 +180,22 @@ describe('pickPages', () => {
       link('https://example.co.in/', 'Home'),
     ];
     expect(pickPages(links, target)).toEqual([{ url: 'https://example.co.in/about', reason: 'other' }]);
+  });
+});
+
+describe('landedSite', () => {
+  const target = new URL('https://brand.in/');
+
+  it('is the final URL when the requested one redirected to another registrable domain', () => {
+    expect(landedSite('https://www.brand.com/home?x=1', target)?.href).toBe('https://www.brand.com/home?x=1');
+  });
+
+  it.each([
+    ['https://www.brand.in/', 'same registrable domain'],
+    ['https://brand.com:8443/', 'a port the guard refuses'],
+    ['chrome-error://chromewebdata/', 'not http(s)'],
+  ])('is undefined for %s (%s)', (href) => {
+    expect(landedSite(href, target)).toBeUndefined();
   });
 });
 

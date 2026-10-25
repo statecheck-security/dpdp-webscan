@@ -11,7 +11,7 @@ import type { PageInspectors, ScanOptions } from '../src/scan.js';
 import { ENGINE_VERSION } from '../src/types.js';
 import { clickAccept, clickReject } from '../src/banner.js';
 import { extractText } from '../src/text.js';
-import { fixtureScanOptions, SITE } from './fixtures.js';
+import { fixtureScanOptions, serveFixtureHttp, SITE } from './fixtures.js';
 
 let browser: Browser;
 
@@ -397,6 +397,29 @@ describe('page slots on fixtures', () => {
 
 // Review fixes (2026-10-25): landing site, recorded URLs, step order.
 describe('review fixes on fixtures', () => {
+  it('follows the site a requested URL redirects to on another domain', async () => {
+    const server = await serveFixtureHttp('redirect-other-domain');
+    try {
+      const { options, routing } = scanOf('redirect-other-domain');
+      options.contextOptions = { install: routing.install, dial: server.dial };
+      const result = await runScan(new URL('http://site.fixture.in/'), options);
+      expect(result.pages.map((p) => [p.url, p.reason, p.status])).toEqual([
+        ['http://site.fixture.in/', 'requested', 'loaded'],
+        ['http://www.moved-fixture.in/privacy', 'privacy', 'loaded'],
+      ]);
+      // The landing site's session cookie is first party there, so it is a site cookie and not W2.
+      expect(result.findings.map((f) => f.id)).not.toContain('W2');
+      expect(result.info.find((i) => i.id === 'site-cookies')?.evidence.identifiers).toEqual([
+        { name: 'PHPSESSID', domain: 'www.moved-fixture.in', store: 'cookie', firstParty: true },
+      ]);
+      expect(result.findings.map((f) => f.id)).not.toContain('W12');
+      expect(JSON.stringify(result)).not.toContain('SECRET-VALUE-DO-NOT-RECORD');
+      expect(routing.unrouted).toEqual([]);
+    } finally {
+      await server.close();
+    }
+  });
+
   it('visits the extra pages before the accept run, so the policy pages get the budget first', async () => {
     const steps: string[] = [];
     const { options } = scanOf('clean', {

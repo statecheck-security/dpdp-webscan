@@ -16,6 +16,7 @@ import { loadPage, PAGE_TIMEOUT_MS, withTimeout } from './browser.js';
 import type { BlockedRequest } from './browser.js';
 import { FORM_PAGE_LINKS, PAGE_LINKS, SKIPPED_PAGE_PATHS } from './data/keywords.js';
 import { PUBLIC_SUFFIXES } from './data/suffixes.js';
+import { parseTarget } from './guard.js';
 import type { PageReason } from './types.js';
 
 /** Extra pages after the requested one (MAX_PAGES = 5 in total). */
@@ -54,6 +55,24 @@ export function registrableDomain(host: string): string {
 export function sameSite(url: URL, target: URL): boolean {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
   return registrableDomain(url.hostname) === registrableDomain(target.hostname);
+}
+
+/**
+ * Where the scan really is after the requested page loaded: the final URL, when the requested one
+ * redirected to another registrable domain (`brand.in` → `brand.com`), else undefined. Page discovery,
+ * robots.txt and first/third party then follow the site a visitor lands on; with the typed domain,
+ * no link would be same-site and the site's own cookies would count as third party (review,
+ * 2026-10-25). The final URL was already allowed by the egress proxy; parseTarget is repeated so a
+ * landing URL is held to the same rules as a requested one.
+ */
+export function landedSite(finalHref: string, target: URL): URL | undefined {
+  let landed: URL;
+  try {
+    landed = parseTarget(finalHref);
+  } catch {
+    return undefined;
+  }
+  return registrableDomain(landed.hostname) === registrableDomain(target.hostname) ? undefined : landed;
 }
 
 // --- Page discovery (WS-3d) ---
