@@ -26,6 +26,7 @@ import { attachCapture } from './capture.js';
 import type { CaptureSnapshot, SnapshotLabel } from './capture.js';
 import type { CheckContext, TrackerLookup } from './checks/context.js';
 import { runChecks } from './checks/index.js';
+import { buildInfo } from './checks/info.js';
 import { categorise } from './data/trackers.js';
 import { inspectForms } from './forms.js';
 import type { FormInfo, InspectForms } from './forms.js';
@@ -35,7 +36,7 @@ import { log as defaultLog } from './log.js';
 import type { Logger } from './log.js';
 import { contextRobotsFetcher, discoverPages, MAX_EXTRA_PAGES, registrableDomain, robotsPolicy } from './pages.js';
 import type { FetchRobots, RobotsFetch } from './pages.js';
-import { buildResult } from './result.js';
+import { assertRedacted, buildResult } from './result.js';
 import { extractText } from './text.js';
 import type { ExtractText, PageText } from './text.js';
 import type { PageReason, PageStatus, PageVisit, PartialReason, ScanResult } from './types.js';
@@ -351,13 +352,17 @@ function checkContext(collection: ScanCollection, trackers: TrackerLookup): Chec
 export async function runScan(target: URL, opts: ScanOptions = {}): Promise<ScanResult> {
   const now = opts.now ?? (() => new Date());
   const collection = await collectScan(target, opts);
-  return buildResult({
+  const ctx = checkContext(collection, opts.trackers ?? categorise);
+  const result = buildResult({
     target,
     startedAt: collection.startedAt,
     finishedAt: now(),
     pages: collection.pages,
     partialReasons: collection.partialReasons,
-    findings: runChecks(checkContext(collection, opts.trackers ?? categorise)),
-    info: [],
+    findings: runChecks(ctx),
+    info: buildInfo(ctx),
   });
+  // No caller (CLI, scan:send, the WS-10 worker) can get a result that is not redacted.
+  assertRedacted(result);
+  return result;
 }

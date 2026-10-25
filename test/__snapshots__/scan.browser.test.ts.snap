@@ -1,0 +1,103 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`result on fixtures > matches the reviewed snapshot for clean, timestamps normalised 1`] = `
+{
+  "catalogueVersion": "2026-10-19-draft1",
+  "engineVersion": "0.7.0",
+  "findings": [],
+  "finishedAt": "<time>",
+  "info": [
+    {
+      "evidence": {
+        "bannerFound": true,
+        "foundOn": "https://site.fixture.in/",
+      },
+      "id": "banner",
+    },
+    {
+      "evidence": {
+        "thirdParties": [],
+      },
+      "id": "third-party-locations",
+    },
+    {
+      "evidence": {
+        "pageLang": [
+          "en",
+        ],
+      },
+      "id": "notice-languages",
+    },
+    {
+      "evidence": {
+        "found": [
+          {
+            "id": "W12",
+            "pageUrl": "https://site.fixture.in/privacy",
+          },
+          {
+            "id": "W13",
+            "pageUrl": "https://site.fixture.in/privacy",
+          },
+          {
+            "id": "W14",
+            "pageUrl": "https://site.fixture.in/privacy",
+          },
+          {
+            "id": "W15",
+            "pageUrl": "https://site.fixture.in/privacy",
+          },
+          {
+            "id": "W16",
+            "pageUrl": "https://site.fixture.in/privacy",
+          },
+        ],
+        "pagesSearched": [
+          "https://site.fixture.in/",
+          "https://site.fixture.in/privacy",
+          "https://site.fixture.in/cookies",
+          "https://site.fixture.in/contact",
+          "https://site.fixture.in/grievance",
+        ],
+      },
+      "id": "coverage",
+    },
+  ],
+  "pages": [
+    {
+      "httpStatus": 200,
+      "reason": "requested",
+      "status": "loaded",
+      "url": "https://site.fixture.in/",
+    },
+    {
+      "httpStatus": 200,
+      "reason": "privacy",
+      "status": "loaded",
+      "url": "https://site.fixture.in/privacy",
+    },
+    {
+      "httpStatus": 200,
+      "reason": "cookies",
+      "status": "loaded",
+      "url": "https://site.fixture.in/cookies",
+    },
+    {
+      "httpStatus": 200,
+      "reason": "contact",
+      "status": "loaded",
+      "url": "https://site.fixture.in/contact",
+    },
+    {
+      "httpStatus": 200,
+      "reason": "grievance",
+      "status": "loaded",
+      "url": "https://site.fixture.in/grievance",
+    },
+  ],
+  "partial": false,
+  "partialReasons": [],
+  "startedAt": "<time>",
+  "target": "https://site.fixture.in/",
+}
+`;

@@ -10,7 +10,7 @@
 import type { CheckId, InfoId } from './checks.js';
 
 // Bump with any change to the result shape or a detection rule (CLAUDE.md, decision 8).
-export const ENGINE_VERSION = '0.6.0';
+export const ENGINE_VERSION = '0.7.0';
 
 export type PageReason = 'requested' | 'privacy' | 'cookies' | 'contact' | 'grievance' | 'terms';
 
@@ -84,6 +84,10 @@ export interface Evidence {
   clicksToReject?: number;
   /** Consent-management vendor, when the banner matched a known CMP. */
   bannerVendor?: string;
+  /** `banner` info item: whether we saw a consent banner on the requested page. */
+  bannerFound?: boolean;
+  /** `coverage` info item: published items W12–W16 we did find, and the first page each is on. */
+  found?: { id: CheckId; pageUrl: string }[];
   /** `lang` attributes seen on the scanned pages (notice-languages info item). */
   pageLang?: string[];
   form?: {

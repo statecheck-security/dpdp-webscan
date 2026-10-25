@@ -5,6 +5,7 @@ import { killBrowser, launchBrowser } from '../src/browser.js';
 import type { CaptureSnapshot } from '../src/capture.js';
 import { TargetError } from '../src/guard.js';
 import { silentLog } from '../src/log.js';
+import { RedactionError } from '../src/result.js';
 import { collectScan, runScan } from '../src/scan.js';
 import type { PageInspectors, ScanOptions } from '../src/scan.js';
 import { ENGINE_VERSION } from '../src/types.js';
@@ -357,5 +358,22 @@ describe('text checks on fixtures', () => {
   it('keeps page text out of the result', async () => {
     const result = await runScan(target, scanOf('trackers-before-consent').options);
     expect(JSON.stringify(result)).not.toContain('An ordinary page that tracks');
+  });
+});
+
+// WS-5b: the assembled result on fixtures. runScan asserts redaction on every result, so every scan above
+// already passes assertRedacted; these two pin the shape and the refusal.
+describe('result on fixtures', () => {
+  it('matches the reviewed snapshot for clean, timestamps normalised', async () => {
+    const result = await runScan(target, scanOf('clean').options);
+    expect({ ...result, startedAt: '<time>', finishedAt: '<time>' }).toMatchSnapshot();
+  });
+
+  it('refuses to return a result holding an email address', async () => {
+    await expect(runScan(target, scanOf('storage-key-email').options)).rejects.toMatchObject({
+      name: 'RedactionError',
+      code: 'email',
+    });
+    await expect(runScan(target, scanOf('storage-key-email').options)).rejects.toBeInstanceOf(RedactionError);
   });
 });

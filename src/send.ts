@@ -6,6 +6,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { sign } from './hmac.js';
+import { assertRedacted } from './result.js';
 import type { ScanResult } from './types.js';
 
 async function main(): Promise<number> {
@@ -23,6 +24,8 @@ async function main(): Promise<number> {
   }
 
   const result = JSON.parse(await readFile(file, 'utf8')) as ScanResult;
+  // Checked again here: the file may have been edited by hand since the scan wrote it.
+  assertRedacted(result);
   const body = JSON.stringify({ requestId, result });
   const timestamp = Math.floor(Date.now() / 1000);
 

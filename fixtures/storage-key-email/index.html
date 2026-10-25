@@ -1,0 +1,14 @@
+<!-- Exercises: the exit-side redaction check (WS-5b). The page stores a localStorage key whose name is an email address; capture records key names, so the name reaches the result, and runScan must refuse it with a RedactionError rather than return it. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Storage key with an email</title>
+    <script>
+      localStorage.setItem('prefs:visitor@example.in', '1');
+    </script>
+  </head>
+  <body>
+    <p>An ordinary page.</p>
+  </body>
+</html>
