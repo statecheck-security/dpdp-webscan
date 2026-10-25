@@ -1,0 +1,120 @@
+/**
+ * What a site publishes on the pages we scanned (WS-5a), for W12–W16. Pure:
+ * reads `CheckContext.texts` (never stored) and the page list. All five
+ * checks are absence findings, emitted when no searched page matches, with
+ * `pagesSearched`; W14 also fires on a period longer than 90 days.
+ * English only (plan section 1).
+ */
+
+import { GRIEVANCE_WORDS, NUMBER_WORDS } from '../data/keywords.js';
+import type { PageText } from '../text.js';
+import type { Finding, PageReason } from '../types.js';
+import type { CheckContext } from './context.js';
+import { quoteOf } from './evidence.js';
+
+export interface PublishedPage {
+  url: string;
+  reason: PageReason;
+  text: PageText;
+}
+
+/** Loaded pages whose text we read, in scan order. A page we could not read is not "searched". */
+export function searchedPages(ctx: CheckContext): PublishedPage[] {
+  return ctx.pages.flatMap((p) => {
+    const text = p.status === 'loaded' ? ctx.texts.get(p.url) : undefined;
+    return text ? [{ url: p.url, reason: p.reason, text }] : [];
+  });
+}
+
+/** Sentences: split at line breaks, table cells and after `.`, `!` or `?`. */
+export function sentences(text: string): string[] {
+  return text
+    .split(/\n|\t|(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
+/** Table rows (lines with cells), cells joined: a rights table puts the right and the how side by side. */
+export function tableRows(text: string): string[] {
+  return text
+    .split('\n')
+    .filter((line) => line.includes('\t'))
+    .map((line) => line.replace(/\t/g, ' '));
+}
+
+export function matchesAny(patterns: readonly RegExp[], text: string): boolean {
+  return patterns.some((re) => re.test(text));
+}
+
+/** An absence finding: undefined when any searched page matches, or when we read no page at all. */
+export function absence(
+  ctx: CheckContext,
+  id: Finding['id'],
+  found: (page: PublishedPage) => boolean,
+): Finding | undefined {
+  const pages = searchedPages(ctx);
+  if (pages.length === 0 || pages.some(found)) return undefined;
+  return { id, evidence: { pagesSearched: pages.map((p) => p.url) } };
+}
+
+// --- W14: grievance periods ---
+
+const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const NUMBER = Object.keys(NUMBER_WORDS)
+  .sort((a, b) => b.length - a.length)
+  .map((w) => escape(w).replace(/ /g, '\\s+'))
+  .join('|');
+
+/** "within 30 days", "in fifteen working days", "not later than thirty (30) days", "within one month". */
+const PERIOD = new RegExp(
+  `\\b(?:within|in|not later than|no later than|not exceeding|up to)\\s+(?:a period of\\s+)?` +
+    `(\\d{1,3}|${NUMBER})(?:\\s*\\(\\d{1,3}\\))?\\s+(working\\s+|business\\s+|calendar\\s+)?(days?|weeks?|months?)\\b`,
+  'gi',
+);
+
+export interface GrievancePeriod {
+  days: number;
+  /** The sentence around the period, at most 25 words, emails and long numbers masked. */
+  quote: string;
+  pageUrl: string;
+}
+
+/** Calendar days; working days count as 7 for every 5. Undefined for a number we do not read. */
+export function periodDays(amount: string, qualifier: string | undefined, unit: string): number | undefined {
+  const n = /^\d+$/.test(amount) ? Number(amount) : NUMBER_WORDS[amount.toLowerCase().replace(/\s+/g, ' ')];
+  if (n === undefined) return undefined;
+  const base = unit.toLowerCase().startsWith('week') ? n * 7 : unit.toLowerCase().startsWith('month') ? n * 30 : n;
+  return qualifier && /working|business/i.test(qualifier) ? Math.ceil((base * 7) / 5) : base;
+}
+
+/** Contact details never reach a quote (ground rule 3). */
+function mask(sentence: string): string {
+  return sentence.replace(/\S+@\S+/g, '[email]').replace(/\+?\d[\d\s()-]{7,}\d/g, '[number]');
+}
+
+/** Up to 25 words around the match: 12 before it, the rest from it. */
+function quoteAround(sentence: string, index: number): string {
+  const before = mask(sentence.slice(0, index)).split(/\s+/).filter(Boolean);
+  const after = mask(sentence.slice(index)).split(/\s+/).filter(Boolean);
+  return quoteOf([...(before.length > 12 ? ['…'] : []), ...before.slice(-12), ...after].join(' '));
+}
+
+/** Periods tied to grievances: in the same or the previous sentence, or anywhere on a grievance page. */
+export function grievancePeriods(page: PublishedPage): GrievancePeriod[] {
+  const out: GrievancePeriod[] = [];
+  const list = sentences(page.text.text);
+  list.forEach((sentence, i) => {
+    const related =
+      page.reason === 'grievance' ||
+      GRIEVANCE_WORDS.test(sentence) ||
+      (i > 0 && GRIEVANCE_WORDS.test(list[i - 1] ?? ''));
+    if (!related) return;
+    for (const m of sentence.matchAll(PERIOD)) {
+      const [, amount, qualifier, unit] = m;
+      if (amount === undefined || unit === undefined) continue;
+      const days = periodDays(amount, qualifier, unit);
+      if (days !== undefined) out.push({ days, quote: quoteAround(sentence, m.index), pageUrl: page.url });
+    }
+  });
+  return out;
+}

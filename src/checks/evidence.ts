@@ -84,3 +84,11 @@ export function formEvidence(form: FormInfo): NonNullable<Evidence['form']> {
     fields: form.fields.map(({ type, name }) => ({ type, name })),
   };
 }
+
+const MAX_QUOTE_WORDS = 25;
+
+/** A quote of at most 25 words (ground rule 3: quotes only for W5 and W14), with an ellipsis when cut. */
+export function quoteOf(sentence: string): string {
+  const words = sentence.trim().split(/\s+/);
+  return words.length <= MAX_QUOTE_WORDS ? words.join(' ') : `${words.slice(0, MAX_QUOTE_WORDS).join(' ')} …`;
+}

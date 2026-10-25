@@ -2,7 +2,7 @@
  * English keyword lists (plan WS-3d, WS-4b, WS-5a). Matchers only: nothing
  * here is shown to a user. WS-3d adds the link lists used to pick the up to
  * 4 extra pages, WS-4a the identifiers W2 and W3 leave out, WS-4b the banner
- * lists, WS-4c the form lists; the text lists follow in WS-5a.
+ * lists, WS-4c the form lists, WS-5a the text lists (W12–W16).
  */
 
 import type { PageReason } from '../types.js';
@@ -134,3 +134,63 @@ export const CONSENT_CHECKBOX =
 
 /** The single field of a search form, which is never a personal-data form. */
 export const SEARCH_FIELD = /^(q|s|query|search|keywords?|term)$/i;
+
+/**
+ * W12: a published contact for questions about personal data (Rule 9). A
+ * `mailto:` link on a privacy or contact page also counts (src/checks/published.ts).
+ */
+export const PRIVACY_CONTACT: readonly RegExp[] = [
+  /\bgrievance officer\b/i,
+  /\bdata protection officer\b/i,
+  /\bDPO\b/,
+  /\b(privacy|dpo|grievance|dataprotection|data-protection)@/i,
+  // "Questions about … privacy / personal data": nav text ("Privacy Policy | Contact us") never says that.
+  /\bquestions?\b.{0,40}\b(privacy|personal (data|information)|data protection)\b/i,
+];
+
+/** W13: the means to ask for access, correction, erasure or nomination (Rule 14(1)(a), S.11–14). */
+export const RIGHTS_MEANS: readonly RegExp[] = [
+  /\brequest\b.{0,30}\b(access|correct(ion)?|eras(e|ure)|delet(e|ion)|updat(e|ing))\b/i,
+  /\bexercise (your|these|any of (your|these)|the) rights\b/i,
+  /\bnominat(e|ion)\b/i,
+  /\bright to (access|correction|erasure|grievance redressal|nominate)\b/i,
+  /\b(access|correct|update|erase|delete) (your|the) personal (data|information)\b/i,
+];
+
+/** W14: words that tie a period to grievances, when the page itself is not a grievance page. */
+export const GRIEVANCE_WORDS = /\bgrievances?\b|\bcomplaints?\b|\bredress(al)?\b/i;
+
+/** Number words W14 understands in a period ("within thirty days"); src/checks/published.ts builds its pattern from them. */
+export const NUMBER_WORDS: Readonly<Record<string, number>> = {
+  one: 1,
+  a: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  ten: 10,
+  fourteen: 14,
+  fifteen: 15,
+  twenty: 20,
+  'twenty-one': 21,
+  'twenty one': 21,
+  thirty: 30,
+  'forty-five': 45,
+  'forty five': 45,
+  sixty: 60,
+  ninety: 90,
+  'one hundred twenty': 120,
+  'one hundred and twenty': 120,
+  'one hundred eighty': 180,
+  'one hundred and eighty': 180,
+};
+
+/** W15: a mention of complaining to the Board (S.5(1)(iii), Rule 3(c)(iii)). */
+export const BOARD_COMPLAINT: readonly RegExp[] = [/\bData Protection Board\b/i];
+
+/** W16: withdrawing consent, said in the same sentence as how (S.5(1)(ii), S.6(4)). */
+export const WITHDRAW_CONSENT = /\bwithdraw\w*\b.{0,40}\bconsent\b|\bconsent\b.{0,40}\bwithdraw\w*\b/i;
+export const WITHDRAW_HOW =
+  /\b(e-?mail\w*|write|writing|click\w*|settings|link|contact\w*|form|unsubscribe|button|toggle|preferences|dashboard|account)\b/i;
