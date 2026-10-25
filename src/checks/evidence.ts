@@ -42,12 +42,19 @@ const STORE_ORDER: Record<IdentifierSet['store'], number> = { cookie: 0, localSt
 /**
  * Cookie names and storage keys in a snapshot, benign first-party ones left
  * out. `sinceMarkOnly` keeps only those set after the snapshot's mark (W3).
+ * `benign: true` keeps only the benign ones instead (the `site-cookies` info
+ * item), so the finding and the info item always split the same list.
  */
-export function identifiersIn(snapshot: CaptureSnapshot, opts: { sinceMarkOnly?: boolean } = {}): IdentifierSet[] {
+export function identifiersIn(
+  snapshot: CaptureSnapshot,
+  opts: { sinceMarkOnly?: boolean; benign?: boolean } = {},
+): IdentifierSet[] {
+  const keep = (name: string, firstParty: boolean): boolean =>
+    isBenignIdentifier(name, firstParty) === (opts.benign ?? false);
   const out: IdentifierSet[] = [];
   for (const c of snapshot.cookies) {
     if (opts.sinceMarkOnly && !c.setSinceMark) continue;
-    if (isBenignIdentifier(c.name, c.firstParty)) continue;
+    if (!keep(c.name, c.firstParty)) continue;
     out.push({
       name: c.name,
       domain: c.domain,
@@ -59,7 +66,7 @@ export function identifiersIn(snapshot: CaptureSnapshot, opts: { sinceMarkOnly?:
   for (const s of snapshot.storage) {
     const domain = new URL(s.origin).hostname;
     for (const key of opts.sinceMarkOnly ? s.keysSetSinceMark : s.keys) {
-      if (isBenignIdentifier(key, s.firstParty)) continue;
+      if (!keep(key, s.firstParty)) continue;
       out.push({ name: key, domain, store: s.store, firstParty: s.firstParty });
     }
   }
