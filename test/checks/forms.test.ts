@@ -75,6 +75,7 @@ describe('detectW8', () => {
       {
         host: 'www.clarity.ms',
         vendor: 'Microsoft Clarity',
+        country: 'US',
         category: 'session-replay',
         pageUrl: contactPage,
         count: 1,

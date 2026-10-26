@@ -26,6 +26,7 @@ export function trackerRequests(snapshot: CaptureSnapshot, trackers: TrackerLook
       host: r.host,
       category: match?.category ?? 'other',
       ...(match ? { vendor: match.vendor } : {}),
+      ...(match?.country ? { country: match.country } : {}),
       pageUrl: r.pageUrl,
       count: r.count,
     });

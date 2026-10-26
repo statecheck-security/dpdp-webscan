@@ -10,7 +10,7 @@
 import type { CheckId, InfoId } from './checks.js';
 
 // Bump with any change to the result shape or a detection rule (CLAUDE.md, decision 8).
-export const ENGINE_VERSION = '0.9.6';
+export const ENGINE_VERSION = '0.10.0';
 
 /** `form` and `other` fill the slots policy pages leave free (WS-3g): a likely form page first, then any nav link. */
 export type PageReason = 'requested' | 'privacy' | 'cookies' | 'contact' | 'grievance' | 'terms' | 'form' | 'other';
@@ -59,6 +59,8 @@ export interface ThirdPartyRequest {
   host: string;
   category?: TrackerCategory;
   vendor?: string;
+  /** ISO 3166-1 alpha-2 country the vendor is based in (WS-11f); absent when not known. Information only. */
+  country?: string;
   pageUrl: string;
   count: number;
 }

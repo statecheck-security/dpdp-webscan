@@ -24,6 +24,7 @@ describe('detectW1', () => {
           {
             host: 'www.google-analytics.com',
             vendor: 'Google Analytics',
+            country: 'US',
             category: 'analytics',
             pageUrl: PAGE,
             count: 4,
@@ -31,6 +32,7 @@ describe('detectW1', () => {
           {
             host: 'www.googletagmanager.com',
             vendor: 'Google Tag Manager',
+            country: 'US',
             category: 'tag-manager',
             pageUrl: PAGE,
             count: 1,
