@@ -15,6 +15,8 @@ import { extname, join, resolve, sep } from 'node:path';
 import type { Browser, BrowserContext } from 'playwright';
 import type { HardenedContextOptions } from '../src/browser.js';
 import type { TrackerLookup } from '../src/checks/context.js';
+import { CMP_FRAMES } from '../src/data/cmps.js';
+import type { CmpFrame } from '../src/data/cmps.js';
 import { categorise } from '../src/data/trackers.js';
 import type { Dial } from '../src/egress.js';
 import type { Lookup } from '../src/guard.js';
@@ -57,6 +59,9 @@ const FIXTURE_TRACKERS: Record<string, ReturnType<TrackerLookup>> = {
   'replay-fixture.in': { vendor: 'Replay Fixture', category: 'session-replay', sessionReplay: true },
   'cmp-fixture.in': { vendor: 'CMP Fixture', category: 'cmp' },
 };
+
+/** The real CMP frame list plus the fake CMP's domain (WS-11c), kept out of src/data/cmps.ts for the same reason. */
+export const fixtureCmpFrames: readonly CmpFrame[] = [{ vendor: 'CMP Fixture', host: 'cmp-fixture.in' }, ...CMP_FRAMES];
 
 export const fixtureTrackers: TrackerLookup = (host) => {
   const domain = Object.keys(FIXTURE_TRACKERS).find((d) => host === d || host.endsWith(`.${d}`));
@@ -197,6 +202,7 @@ export function fixtureScanOptions(
       afterClickMs: 500,
       // Fixture banners are in the HTML, except banner-late, whose test sets its own wait.
       bannerWaitMs: 0,
+      cmpFrames: fixtureCmpFrames,
       ...extra,
     },
   };

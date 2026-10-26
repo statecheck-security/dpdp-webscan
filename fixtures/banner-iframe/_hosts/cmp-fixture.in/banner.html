@@ -1,0 +1,20 @@
+<!-- The fixture CMP's first layer, served from cmp-fixture.in inside the site's consent frame. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Consent</title>
+  </head>
+  <body>
+    <div class="consent-layer">
+      <p>We and our partners use cookies to measure traffic.</p>
+      <button type="button" data-choice="reject">Reject all</button>
+      <button type="button" data-choice="accept">Accept all</button>
+    </div>
+    <script>
+      for (const button of document.querySelectorAll('button')) {
+        button.addEventListener('click', () => parent.postMessage(button.dataset.choice, '*'));
+      }
+    </script>
+  </body>
+</html>

@@ -33,6 +33,7 @@ import type { CaptureSnapshot, SnapshotLabel } from './capture.js';
 import type { CheckContext, TrackerLookup } from './checks/context.js';
 import { runChecks } from './checks/index.js';
 import { buildInfo } from './checks/info.js';
+import type { CmpFrame } from './data/cmps.js';
 import { categorise } from './data/trackers.js';
 import { inspectForms } from './forms.js';
 import type { FormInfo, InspectForms } from './forms.js';
@@ -98,6 +99,8 @@ export interface ScanOptions {
   afterClickMs?: number;
   /** Defaults to BANNER_WAIT_MS (banner.ts). Tests shorten it: most fixture banners are in the HTML. */
   bannerWaitMs?: number;
+  /** Tests: allow the fixture CMP's frame domain. Defaults to CMP_FRAMES (src/data/cmps.ts). */
+  cmpFrames?: readonly CmpFrame[];
   /** Tests: fixture routing and a fake dial for every context (test/fixtures.ts). */
   contextOptions?: Pick<HardenedContextOptions, 'install' | 'dial'>;
   /** Tests: replace per-page inspectors (e.g. a fake banner before WS-4b exists). */
@@ -167,7 +170,9 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
   const log = opts.log ?? defaultLog;
   const inspect: PageInspectors = {
     ...DEFAULT_INSPECTORS,
-    ...(opts.bannerWaitMs !== undefined ? { findBanner: banner.bannerFinder(opts.bannerWaitMs) } : {}),
+    ...(opts.bannerWaitMs !== undefined || opts.cmpFrames !== undefined
+      ? { findBanner: banner.bannerFinder(opts.bannerWaitMs ?? banner.BANNER_WAIT_MS, opts.cmpFrames) }
+      : {}),
     ...opts.inspectors,
   };
   const scanTimeoutMs = opts.scanTimeoutMs ?? SCAN_TIMEOUT_MS;

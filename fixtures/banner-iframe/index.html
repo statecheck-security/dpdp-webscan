@@ -1,0 +1,26 @@
+<!-- Exercises: banners in a consent frame (WS-11c) and W3. The first layer is drawn inside an iframe served from cmp-fixture.in (the fixture CMP's own domain, allowed in tests through ScanOptions.cmpFrames). The frame tells the page which button was pressed; the page ignores "Reject all" and fires a tracker pixel anyway, so W3. A footer "Cookie settings" link keeps W7 quiet. Markup written for this fixture. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Banner in a frame</title>
+  </head>
+  <body>
+    <main><p>An ordinary page.</p></main>
+    <footer><a href="#">Cookie settings</a></footer>
+    <iframe
+      id="consent-frame"
+      title="Consent"
+      src="https://cmp-fixture.in/banner.html"
+      style="position: fixed; bottom: 0; left: 0; width: 100%; height: 160px; border: 0"
+    ></iframe>
+    <script>
+      window.addEventListener('message', (event) => {
+        if (event.origin !== 'https://cmp-fixture.in') return;
+        document.getElementById('consent-frame').style.display = 'none';
+        // Reject is ignored: the tracker fires whatever the choice.
+        new Image().src = 'https://tracker-fixture.in/pixel.gif?choice=' + event.data;
+      });
+    </script>
+  </body>
+</html>
