@@ -40,5 +40,6 @@ Local static pages the engine is tested against (plan WS-8). `test/fixtures.ts` 
 | `banner-late/`                                    | WS-11b: banner drawn 1.5 s after load is found with the banner wait; its reject is ignored (W3)                                                            |
 | `banner-iframe/`                                  | WS-11c: banner drawn in a consent frame from `cmp-fixture.in` (allowed in tests via `fixtureCmpFrames`); reject clicked inside the frame is ignored (W3)   |
 | `banner-iframe-unknown/`                          | WS-11c: consent-looking banner in a frame from `forms-fixture.in`, not an allowed frame domain: never searched, so no banner                               |
+| `replay-after-accept/`                            | WS-11d: session replay loads only after "Accept all", on a page with an email form (W8 from the accept run)                                                |
 
 **Rules.** No real personal data: `example.in` addresses and obviously fake names only. Redaction fixtures carry the sentinel `SECRET-VALUE-DO-NOT-RECORD` in a cookie value, a form value and page text, and tests assert it never appears in a result. Never copy markup from a real site.
