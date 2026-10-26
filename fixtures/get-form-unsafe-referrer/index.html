@@ -1,0 +1,25 @@
+<!-- Exercises: W11 with every offending form and the Referer note's facts (WS-11g). Two forms send an email address by GET; the page sets <meta name=referrer content=unsafe-url>, so a URL carrying what the visitor typed would be sent in full to the tracker this page loads (W1 too). W11 lists both forms with the policy and the tracker as the third party on the page. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="referrer" content="unsafe-url" />
+    <title>GET forms with an unsafe referrer policy</title>
+  </head>
+  <body>
+    <h1>Newsletter</h1>
+    <form method="get" action="/subscribe">
+      <label>Email <input type="email" name="email" /></label>
+      <button type="submit">Subscribe</button>
+    </form>
+    <h2>Call back</h2>
+    <form method="get" action="/callback">
+      <label>Email <input type="email" name="contact_email" /></label>
+      <label>Phone <input type="tel" name="phone" /></label>
+      <button type="submit">Call me</button>
+    </form>
+    <script>
+      new Image().src = 'https://tracker-fixture.in/pixel.gif';
+    </script>
+  </body>
+</html>

@@ -32,6 +32,8 @@ export interface CheckContext {
   persistentControlFoundOn: string[];
   /** Forms on all scanned pages. */
   forms: FormInfo[];
+  /** Page URL → its Referrer-Policy response header, as sent (W11, WS-11g). Never leaves the context. */
+  referrerHeaders?: ReadonlyMap<string, string>;
   /** Page URL → text. Never leaves the context. */
   texts: Map<string, PageText>;
   trackers: TrackerLookup;

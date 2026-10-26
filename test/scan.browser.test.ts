@@ -339,7 +339,7 @@ describe('form checks on fixtures', () => {
   it('reports W6 for a ticked marketing box, and never records the field value', async () => {
     const result = await runScan(target, scanOf('prechecked-box').options);
     expect(ids(result)).toEqual(['W6']);
-    expect(result.findings[0]?.evidence.form?.fields).toEqual([
+    expect(result.findings[0]?.evidence.forms?.[0]?.fields).toEqual([
       { type: 'email', name: 'email' },
       { type: 'checkbox', name: 'marketing_optin' },
       { type: 'checkbox', name: 'remember' },
@@ -364,20 +364,20 @@ describe('form checks on fixtures', () => {
     expect(result.findings[0]?.evidence.thirdParties?.map((t) => [t.host, t.pageUrl])).toEqual([
       ['replay-fixture.in', SITE],
     ]);
-    expect(result.findings[0]?.evidence.form?.pageUrl).toBe(SITE);
+    expect(result.findings[0]?.evidence.forms?.[0]?.pageUrl).toBe(SITE);
     expect(routing.unrouted).toEqual([]);
   });
 
   it('reports W9 for a form posting to another company, not for the payment form', async () => {
     const result = await runScan(target, scanOf('third-party-form').options);
     expect(ids(result)).toEqual(['W9']);
-    expect(result.findings[0]?.evidence.form?.actionHost).toBe('forms-fixture.in');
+    expect(result.findings[0]?.evidence.forms?.[0]?.actionHost).toBe('forms-fixture.in');
   });
 
   it('reports W10 for a personal form on a plain-http page', async () => {
     const result = await runScan(new URL('http://site.fixture.in/'), scanOf('http-form').options);
     expect(ids(result)).toEqual(['W10']);
-    expect(result.findings[0]?.evidence.form).toMatchObject({
+    expect(result.findings[0]?.evidence.forms?.[0]).toMatchObject({
       pageUrl: 'http://site.fixture.in/',
       actionScheme: 'http',
     });
@@ -386,10 +386,29 @@ describe('form checks on fixtures', () => {
   it('reports W11 for an email sent by GET, not for the search box or the script form', async () => {
     const result = await runScan(target, scanOf('get-form-email').options);
     expect(ids(result)).toEqual(['W11']);
-    expect(result.findings[0]?.evidence.form).toMatchObject({
+    expect(result.findings[0]?.evidence.forms?.[0]).toMatchObject({
       method: 'get',
       fields: [{ type: 'email', name: 'email' }],
     });
+    expect(result.findings[0]?.evidence.forms?.[0]).not.toHaveProperty('referrerPolicy');
+  });
+
+  // WS-11g: every offending form, and the facts for the Referer note.
+  it('lists both GET forms with the meta referrer policy and the tracker on their page', async () => {
+    const result = await runScan(target, scanOf('get-form-unsafe-referrer').options);
+    expect(ids(result)).toEqual(['W1', 'W11']);
+    const w11 = result.findings.find((f) => f.id === 'W11')?.evidence;
+    expect(w11?.forms?.map((f) => [f.pageUrl, f.referrerPolicy, f.fields.map((x) => x.name)])).toEqual([
+      [SITE, 'unsafe-url', ['email']],
+      [SITE, 'unsafe-url', ['contact_email', 'phone']],
+    ]);
+    expect(w11?.thirdParties?.map((t) => t.host)).toEqual(['tracker-fixture.in']);
+  });
+
+  it('reads the referrer policy from the response header', async () => {
+    const result = await runScan(target, scanOf('get-form-referrer-header').options);
+    expect(ids(result)).toEqual(['W11']);
+    expect(result.findings[0]?.evidence.forms?.[0]?.referrerPolicy).toBe('no-referrer-when-downgrade');
   });
 });
 
@@ -459,7 +478,7 @@ describe('page slots on fixtures', () => {
       ['https://site.fixture.in/about', 'other', 'loaded'],
     ]);
     expect(ids(result)).toEqual(['W11']);
-    expect(result.findings[0]?.evidence.form?.pageUrl).toBe('https://site.fixture.in/assessment');
+    expect(result.findings[0]?.evidence.forms?.[0]?.pageUrl).toBe('https://site.fixture.in/assessment');
   });
 });
 
