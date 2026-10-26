@@ -259,6 +259,16 @@ describe('banner checks on fixtures', () => {
     expect(result.partial).toBe(false);
   });
 
+  // WS-11h: the same tracker after either choice, and what each choice set.
+  it('compares what accept and reject each added', async () => {
+    const result = await runScan(target, scanOf('reject-ignored').options);
+    const comparison = result.info.find((i) => i.id === 'consent-comparison')?.evidence.consentComparison;
+    expect(comparison?.afterAccept.thirdParties.map((t) => t.host)).toEqual(['tracker-fixture.in']);
+    expect(comparison?.afterReject.thirdParties.map((t) => t.host)).toEqual(['tracker-fixture.in']);
+    expect(comparison?.afterReject.identifiers.map((i) => i.name)).toEqual(['trk_after_reject']);
+    expect(comparison?.afterAccept.identifiers.map((i) => i.name)).not.toContain('trk_after_reject');
+  });
+
   it('reports W4 with the extra click when reject sits behind cookie settings', async () => {
     const { options } = scanOf('no-first-layer-reject');
     const result = await runScan(target, options);

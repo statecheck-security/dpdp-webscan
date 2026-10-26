@@ -16,12 +16,18 @@
  *    (v1): S.16 restricts no country, so this is information only.
  *  - notice-languages: the `lang` attributes seen (we check English text only).
  *  - coverage: the pages we read, and where each published item W12–W16 was found.
+ *  - consent-comparison (WS-11h): tracker hosts and identifiers that only
+ *    appeared after "accept", and those that only appeared after "reject",
+ *    each against the requested page before any choice. It shows whether the
+ *    banner holds anything back, and puts W1 and W3 in context. Emitted only
+ *    when both choice runs completed; otherwise the banner item says why.
  *
  * Nothing about a page we never loaded: with no loaded page there is only coverage.
  */
 
 import { isTracking } from '../data/trackers.js';
-import type { Info } from '../types.js';
+import type { CaptureSnapshot } from '../capture.js';
+import type { ChoiceAdded, Info } from '../types.js';
 import type { CheckContext } from './context.js';
 import { identifiersIn, trackerRequests } from './evidence.js';
 import { decidingPeriod, grievancePeriods, PUBLISHED, searchedPages } from './published.js';
@@ -39,6 +45,22 @@ function found(ctx: CheckContext): NonNullable<Info['evidence']['found']> {
   const period = decidingPeriod(pages.flatMap(grievancePeriods));
   if (period && period.days <= MAX_DAYS) out.push({ id: 'W14', pageUrl: period.pageUrl });
   return out.sort((a, b) => Number(a.id.slice(1)) - Number(b.id.slice(1)));
+}
+
+/** Trackers contacted and identifiers set after the choice that the page had not loaded before any choice. */
+function choiceAdded(ctx: CheckContext, run: CaptureSnapshot): ChoiceAdded {
+  const before = new Set(
+    trackerRequests(ctx.baseline, ctx.trackers)
+      .filter((r) => isTracking(r.category))
+      .map((r) => r.host),
+  );
+  const named = new Set(identifiersIn(ctx.baseline).map((i) => `${i.store} ${i.domain} ${i.name}`));
+  return {
+    thirdParties: trackerRequests(run, ctx.trackers).filter((r) => isTracking(r.category) && !before.has(r.host)),
+    identifiers: identifiersIn(run, { sinceMarkOnly: true }).filter(
+      (i) => !named.has(`${i.store} ${i.domain} ${i.name}`),
+    ),
+  };
 }
 
 export function buildInfo(ctx: CheckContext): Info[] {
@@ -68,5 +90,18 @@ export function buildInfo(ctx: CheckContext): Info[] {
     },
     { id: 'notice-languages', evidence: { pageLang: langs } },
     coverage,
+    ...(ctx.afterAccept && ctx.afterReject
+      ? [
+          {
+            id: 'consent-comparison' as const,
+            evidence: {
+              consentComparison: {
+                afterAccept: choiceAdded(ctx, ctx.afterAccept),
+                afterReject: choiceAdded(ctx, ctx.afterReject),
+              },
+            },
+          },
+        ]
+      : []),
   ];
 }
