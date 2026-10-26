@@ -11,14 +11,15 @@
  *
  * Rules: never click anything outside the banner (its CMP container, or a
  * consent dialog it opened); at most 2 clicks per run, below the 3 the plan
- * allows; never submit a form.
+ * allows; never submit a form. A settings click that leaves the page opened
+ * no consent layer, so the run stops there (WS-11b).
  */
 
 import type { Page } from 'playwright';
 import { evaluateIn } from './browser.js';
 import { CMPS, CONTROLS, DIALOGS, GENERIC_BANNER } from './data/cmps.js';
 import type { CmpSelectors } from './data/cmps.js';
-import { BANNER_TEXT, BUTTON_ROLES, PERSISTENT_CONTROL, SAVE_CHOICES } from './data/keywords.js';
+import { BANNER_TEXT, BUTTON_ROLES, CMP_SETTINGS, PERSISTENT_CONTROL, SAVE_CHOICES } from './data/keywords.js';
 
 export type ButtonRole = 'accept' | 'reject' | 'settings' | 'other';
 
@@ -55,6 +56,9 @@ const MAX_GENERIC_TEXT_CHARS = 3_000;
 const CLICK_TIMEOUT_MS = 3_000;
 /** After a settings click, time for the preferences layer to open. */
 const LAYER_WAIT_MS = 1_000;
+/** How long findBanner keeps looking for a banner drawn after the page settled (WS-11b). */
+export const BANNER_WAIT_MS = 3_000;
+const BANNER_POLL_MS = 500;
 
 interface Pattern {
   source: string;
@@ -71,6 +75,8 @@ interface InPageArgs {
   controlAttr: string;
   bannerText: Pattern;
   roles: { role: Exclude<ButtonRole, 'other'>; label: Pattern }[];
+  /** Settings labels counted only inside a known CMP's banner (CMP_SETTINGS). */
+  cmpSettings: Pattern;
   persistent: Pattern;
   maxText: number;
   maxLabel: number;
@@ -106,6 +112,7 @@ function args(mode: InPageArgs['mode']): InPageArgs {
     controlAttr: CONTROL_ATTR,
     bannerText: pattern(BANNER_TEXT),
     roles: BUTTON_ROLES.map((r) => ({ role: r.role, label: pattern(r.label) })),
+    cmpSettings: pattern(CMP_SETTINGS),
     persistent: pattern(PERSISTENT_CONTROL),
     maxText: MAX_TEXT_CHARS,
     maxLabel: MAX_LABEL_CHARS,
@@ -118,6 +125,7 @@ function inPage(a: InPageArgs): InPageResult | undefined {
   const re = (p: Pattern): RegExp => new RegExp(p.source, p.flags);
   const bannerText = re(a.bannerText);
   const roles = a.roles.map((r) => ({ role: r.role, label: re(r.label) }));
+  const cmpSettings = re(a.cmpSettings);
   const collapse = (s: string): string => s.replace(/\s+/g, ' ').trim();
 
   const deepAll = (root: Document | Element | ShadowRoot, selector: string): Element[] => {
@@ -157,17 +165,18 @@ function inPage(a: InPageArgs): InPageResult | undefined {
         el.getAttribute('title') ||
         '',
     ).slice(0, a.maxLabel);
-  const roleOf = (label: string): ButtonRole => roles.find((r) => r.label.test(label))?.role ?? 'other';
+  const roleOf = (label: string, cmp = false): ButtonRole =>
+    roles.find((r) => r.label.test(label))?.role ?? (cmp && cmpSettings.test(label) ? 'settings' : 'other');
   const within = (el: Element, roots: Element[]): boolean => {
     for (let n: Element | null = el; n; n = parentOf(n)) if (roots.includes(n)) return true;
     return false;
   };
-  const controlsIn = (scope: Element): Element[] =>
+  const controlsIn = (scope: Element, cmp = false): Element[] =>
     [...new Set(deepAll(scope, a.controls))].filter((el) => {
       if (!visible(el)) return false;
       // A plain link is a control only when it names a choice (e.g. "Got it"), never a policy link.
       const plainLink = el.tagName === 'A' && el.getAttribute('role') !== 'button';
-      return !plainLink || roleOf(labelOf(el)) !== 'other';
+      return !plainLink || roleOf(labelOf(el), cmp) !== 'other';
     });
   const positioned = (el: Element): boolean => {
     for (let n: Element | null = el; n; n = parentOf(n)) {
@@ -179,13 +188,13 @@ function inPage(a: InPageArgs): InPageResult | undefined {
   const unmark = (attr: string, prefix = ''): void => {
     for (const el of deepAll(document, `[${attr}^="${prefix}"]`)) el.removeAttribute(attr);
   };
-  const markControls = (els: Element[], prefix: string): InPageControl[] => {
+  const markControls = (els: Element[], prefix: string, cmp = false): InPageControl[] => {
     unmark(a.controlAttr, prefix);
     return els.map((el, i) => {
       const ref = `${prefix}${i}`;
       el.setAttribute(a.controlAttr, ref);
       const label = labelOf(el);
-      return { ref, label, role: roleOf(label) };
+      return { ref, label, role: roleOf(label, cmp) };
     });
   };
   const empty = { text: '', controls: [], optionalOn: false, persistent: false };
@@ -199,12 +208,12 @@ function inPage(a: InPageArgs): InPageResult | undefined {
         ...empty,
         ...(vendor ? { vendor } : {}),
         text: textOf(el).slice(0, a.maxText),
-        controls: markControls(controlsIn(el), 'b'),
+        controls: markControls(controlsIn(el, vendor !== undefined), 'b', vendor !== undefined),
       };
     };
     for (const cmp of a.cmps) {
       for (const el of deepAll(document, cmp.banner)) {
-        if (visible(el) && controlsIn(el).length > 0) return describe(el, cmp.vendor, cmp.root);
+        if (visible(el) && controlsIn(el, true).length > 0) return describe(el, cmp.vendor, cmp.root);
       }
     }
     const candidates: { el: Element; rank: number; length: number }[] = [];
@@ -231,7 +240,7 @@ function inPage(a: InPageArgs): InPageResult | undefined {
       ...deepAll(document, `[${a.bannerAttr}]`),
       ...deepAll(document, a.dialogs).filter((d) => visible(d) && bannerText.test(textOf(d))),
     ];
-    const controls = [...new Set(scopes.flatMap(controlsIn))];
+    const controls = [...new Set(scopes.flatMap((s) => controlsIn(s)))];
     const switches =
       'input[type="checkbox"]:checked:not(:disabled), [role="switch"][aria-checked="true"]:not([aria-disabled="true"])';
     return {
@@ -278,15 +287,38 @@ function savesChoices(label: string): boolean {
   return SAVE_CHOICES.test(label) && !/\ball\b/i.test(label);
 }
 
-export const findBanner: FindBanner = async (page) => {
-  const found = await inspect(page, 'first');
-  if (!found) return undefined;
-  return {
-    ...(found.vendor ? { vendor: found.vendor } : {}),
-    text: found.text,
-    buttons: found.controls.map((c) => ({ ...c, visible: true, clicksFromFirstLayer: 1 })),
+/**
+ * A findBanner that keeps looking for up to `waitMs` (WS-11b). Many CMPs draw
+ * the banner only after their script loads, which can be after network idle;
+ * looking once read those sites as "no banner" and skipped W3–W7.
+ */
+export function bannerFinder(waitMs = BANNER_WAIT_MS): FindBanner {
+  return async (page) => {
+    const deadline = Date.now() + waitMs;
+    for (;;) {
+      const found = await inspect(page, 'first');
+      if (found) {
+        return {
+          ...(found.vendor ? { vendor: found.vendor } : {}),
+          text: found.text,
+          buttons: found.controls.map((c) => ({ ...c, visible: true, clicksFromFirstLayer: 1 })),
+        };
+      }
+      const left = deadline - Date.now();
+      if (left <= 0) return undefined;
+      await new Promise((resolve) => setTimeout(resolve, Math.min(BANNER_POLL_MS, left)));
+    }
   };
-};
+}
+
+export const findBanner: FindBanner = bannerFinder();
+
+/** The page's URL without its fragment: a `#` settings link is not a navigation. */
+function pageAddress(page: Page): string {
+  const url = new URL(page.url());
+  url.hash = '';
+  return url.href;
+}
 
 /**
  * Reject on the first layer if it is there; else open settings and reject
@@ -297,8 +329,11 @@ export const clickReject: ClickBanner = async (page, banner) => {
   if (reject) return (await click(page, reject.ref)) ? { clicked: true, clicks: 1 } : FAILED;
   const settings = banner.buttons.find((b) => b.role === 'settings');
   if (!settings) return NO_CONTROL;
+  const before = pageAddress(page);
   if (!(await click(page, settings.ref))) return FAILED;
   await new Promise((resolve) => setTimeout(resolve, LAYER_WAIT_MS));
+  // A "settings" control that leaves the page opened no consent layer: there is no reject behind it (WS-11b).
+  if (pageAddress(page) !== before) return NO_CONTROL;
   const layer = await inspect(page, 'second');
   if (!layer) return FAILED;
   const next =

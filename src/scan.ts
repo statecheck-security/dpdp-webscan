@@ -96,6 +96,8 @@ export interface ScanOptions {
   scanTimeoutMs?: number;
   /** Defaults to AFTER_CLICK_MS. Tests shorten it: fixture banners fire at once. */
   afterClickMs?: number;
+  /** Defaults to BANNER_WAIT_MS (banner.ts). Tests shorten it: most fixture banners are in the HTML. */
+  bannerWaitMs?: number;
   /** Tests: fixture routing and a fake dial for every context (test/fixtures.ts). */
   contextOptions?: Pick<HardenedContextOptions, 'install' | 'dial'>;
   /** Tests: replace per-page inspectors (e.g. a fake banner before WS-4b exists). */
@@ -163,7 +165,11 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
   parseTarget(target.href);
   const now = opts.now ?? (() => new Date());
   const log = opts.log ?? defaultLog;
-  const inspect: PageInspectors = { ...DEFAULT_INSPECTORS, ...opts.inspectors };
+  const inspect: PageInspectors = {
+    ...DEFAULT_INSPECTORS,
+    ...(opts.bannerWaitMs !== undefined ? { findBanner: banner.bannerFinder(opts.bannerWaitMs) } : {}),
+    ...opts.inspectors,
+  };
   const scanTimeoutMs = opts.scanTimeoutMs ?? SCAN_TIMEOUT_MS;
   const reserveMs = Math.min(RESERVE_MS, scanTimeoutMs / 10);
   const deadline = Date.now() + scanTimeoutMs;

@@ -4,7 +4,7 @@ The engine behind **DPDPA Website Check** (`statechecksecurity.com/scan`). It lo
 
 Each finding points at the section of the Digital Personal Data Protection Act, 2023 or the DPDP Rules, 2025 it engages, labelled **settled**, **likely** or **open**. There is **no score**, and no "compliant" verdict.
 
-**Status:** v0. All sixteen checks (W1–W16) and the information items are built and tested; engine `0.9.3`, catalogue `2026-10-25-r2`. Scans are run by hand in the Docker container below and sent to the website, which renders and emails the report. There is no hosted service yet. The build plan is kept outside the repo.
+**Status:** v0. All sixteen checks (W1–W16) and the information items are built and tested; engine `0.9.4`, catalogue `2026-10-25-r2`. Scans are run by hand in the Docker container below and sent to the website, which renders and emails the report. There is no hosted service yet. The build plan is kept outside the repo.
 
 ## What it checks
 

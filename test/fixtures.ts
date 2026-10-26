@@ -195,6 +195,8 @@ export function fixtureScanOptions(
       trackers: fixtureTrackers,
       // Fixture banners fire their requests as soon as they are clicked.
       afterClickMs: 500,
+      // Fixture banners are in the HTML, except banner-late, whose test sets its own wait.
+      bannerWaitMs: 0,
       ...extra,
     },
   };
