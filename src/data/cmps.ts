@@ -64,6 +64,31 @@ export const CMPS: readonly CmpSelectors[] = [
   { vendor: 'Cookie Notice (WordPress)', banner: '#cookie-notice', root: '#cookie-notice' },
 ];
 
+/** A CMP that draws its banner inside an iframe, served from its own domain. */
+export interface CmpFrame {
+  vendor: string;
+  /** Registrable domain the frame is served from; any subdomain matches. */
+  host: string;
+}
+
+/**
+ * CMPs whose first layer lives in an iframe (WS-11c). Only frames from these
+ * domains, or from the scanned site itself, are ever searched or clicked: a
+ * click inside another company's frame would be a click outside the banner.
+ * Matched by the vendor's registrable domain because the exact subdomain
+ * varies by product and region. Sourcepoint: `cdn.privacy-mgmt.com` per its
+ * implementation guides (customers can CNAME it to their own domain, which the
+ * same-site rule covers). TrustArc: its own domain; the subdomain is to be
+ * confirmed in the WS-11e calibration round.
+ */
+export const CMP_FRAMES: readonly CmpFrame[] = [
+  { vendor: 'Sourcepoint', host: 'privacy-mgmt.com' },
+  { vendor: 'TrustArc', host: 'trustarc.com' },
+];
+
+/** A frame covering at least this share of the viewport counts as a banner layer even if not fixed. */
+export const FRAME_MIN_COVERAGE = 0.3;
+
 /**
  * Elements that may be (or sit inside) a banner when no CMP matched. A match
  * still has to look like a banner: visible, fixed or sticky or a dialog or
