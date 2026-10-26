@@ -11,7 +11,7 @@
 
 import { chromium } from 'playwright';
 import type { Browser, BrowserContext, Frame, Page, Request } from 'playwright';
-import { allowedAddress, startEgressProxy } from './egress.js';
+import { allowedAddresses, startEgressProxy } from './egress.js';
 import type { BlockedRequest, Dial } from './egress.js';
 import type { Lookup } from './guard.js';
 import type { Logger } from './log.js';
@@ -101,7 +101,7 @@ export async function newHardenedContext(browser: Browser, opts: HardenedContext
   const resolved = new Map<string, Promise<string[]>>();
   await context.route('**/*', async (route) => {
     const url = new URL(route.request().url());
-    if (await allowedAddress(url, resolved, opts.lookup)) return route.fallback();
+    if ((await allowedAddresses(url, resolved, opts.lookup)).length > 0) return route.fallback();
     blocked.push({ host: url.hostname, reason: 'ssrf' });
     opts.log('request-blocked', { host: url.hostname, reason: 'ssrf', layer: 'route' });
     return route.abort('blockedbyclient');
