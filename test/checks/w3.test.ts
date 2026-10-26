@@ -42,7 +42,14 @@ describe('detectW3', () => {
       id: 'W3',
       evidence: {
         thirdParties: [
-          { host: 'connect.facebook.net', vendor: 'Meta Pixel', category: 'ads', pageUrl: PAGE, count: 2 },
+          {
+            host: 'connect.facebook.net',
+            vendor: 'Meta Pixel',
+            country: 'US',
+            category: 'ads',
+            pageUrl: PAGE,
+            count: 2,
+          },
         ],
         identifiers: [
           { name: '_fbp', domain: 'example.in', store: 'cookie', firstParty: true, expiresInSeconds: 7_776_000 },
