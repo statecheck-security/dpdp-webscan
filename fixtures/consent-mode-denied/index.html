@@ -1,0 +1,31 @@
+<!-- Exercises: the Consent Mode signal (WS-11j) and W3. Nothing loads before a choice. "Reject all" still sends a tag request, marked gcs=G100 (both storage types denied), with a client id carrying the sentinel SECRET-VALUE-DO-NOT-RECORD in the same query string; "Accept all" sends gcs=G111. Tests let tracker-fixture.in stand in for Google through ScanOptions.consentModeHosts. A footer "Cookie settings" link keeps W7 quiet. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Consent Mode denied</title>
+  </head>
+  <body>
+    <div id="consent-banner" role="dialog" aria-label="Cookie consent" style="position: fixed; bottom: 0">
+      <p>We use cookies to measure traffic.</p>
+      <button type="button" id="reject">Reject all</button>
+      <button type="button" id="accept">Accept all</button>
+    </div>
+    <main><p>An ordinary page.</p></main>
+    <footer><a href="#">Cookie settings</a></footer>
+    <script>
+      const banner = document.getElementById('consent-banner');
+      const ping = (gcs) => {
+        new Image().src = 'https://tracker-fixture.in/pixel.gif?v=2&gcs=' + gcs + '&cid=SECRET-VALUE-DO-NOT-RECORD';
+      };
+      document.getElementById('reject').addEventListener('click', () => {
+        banner.hidden = true;
+        ping('G100');
+      });
+      document.getElementById('accept').addEventListener('click', () => {
+        banner.hidden = true;
+        ping('G111');
+      });
+    </script>
+  </body>
+</html>
