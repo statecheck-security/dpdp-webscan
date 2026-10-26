@@ -357,6 +357,17 @@ describe('form checks on fixtures', () => {
     expect(routing.unrouted).toEqual([]);
   });
 
+  it('reports W8 for replay that loads only after accept (WS-11d)', async () => {
+    const { options, routing } = scanOf('replay-after-accept');
+    const result = await runScan(target, options);
+    expect(ids(result)).toEqual(['W8']);
+    expect(result.findings[0]?.evidence.thirdParties?.map((t) => [t.host, t.pageUrl])).toEqual([
+      ['replay-fixture.in', SITE],
+    ]);
+    expect(result.findings[0]?.evidence.form?.pageUrl).toBe(SITE);
+    expect(routing.unrouted).toEqual([]);
+  });
+
   it('reports W9 for a form posting to another company, not for the payment form', async () => {
     const result = await runScan(target, scanOf('third-party-form').options);
     expect(ids(result)).toEqual(['W9']);

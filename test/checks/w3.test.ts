@@ -16,6 +16,19 @@ describe('detectW3', () => {
     expect(detectW3(context({ afterReject: afterReject({}) }))).toBeUndefined();
   });
 
+  // WS-11d: a CMP saving or checking the choice is not tracking.
+  it('is quiet when only CMP endpoints are contacted after the click', () => {
+    const run = afterReject({
+      requests: [
+        request('geolocation.onetrust.com'),
+        request('cdn.privacy-mgmt.com'),
+        request('fundingchoicesmessages.google.com'),
+        request('vendor-list.consensu.org'),
+      ],
+    });
+    expect(detectW3(context({ afterReject: run }))).toBeUndefined();
+  });
+
   it('reports trackers contacted and identifiers set after the click', () => {
     const run = afterReject({
       requests: [request('connect.facebook.net', { count: 2 }), request('cdn.cookielaw.org')],

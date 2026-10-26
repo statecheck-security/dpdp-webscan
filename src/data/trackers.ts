@@ -155,6 +155,11 @@ export const TRACKERS: readonly TrackerEntry[] = [
   { pattern: 'usercentrics.com', vendor: 'Usercentrics', category: 'cmp' },
   { pattern: 'kiprotect.com', vendor: 'Klaro', category: 'cmp' },
   { pattern: 'hs-banner.com', vendor: 'HubSpot cookie banner', category: 'cmp' },
+  // WS-11d: endpoints a CMP calls after the visitor's choice, which W3 must not read as tracking.
+  // OneTrust's geolocation lookup (geolocation.onetrust.com) is already covered by onetrust.com.
+  { pattern: 'privacy-mgmt.com', vendor: 'Sourcepoint', category: 'cmp' },
+  { pattern: 'fundingchoicesmessages.google.com', vendor: 'Google Funding Choices', category: 'cmp' },
+  { pattern: 'consensu.org', vendor: 'IAB TCF vendor list', category: 'cmp' },
 
   // Chat widgets: named, not counted as trackers
   { pattern: 'intercom.io', vendor: 'Intercom', category: 'other' },

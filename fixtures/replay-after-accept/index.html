@@ -1,0 +1,35 @@
+<!-- Exercises: W8 after accept (WS-11d). A newsletter form asks for an email address on the requested page. Nothing third party loads before a choice; "Accept all" loads a session-replay script on this page, so W8 comes from the accept run. Reject loads nothing (no W3); a footer "Cookie settings" link keeps W7 quiet. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Replay after accept</title>
+  </head>
+  <body>
+    <div id="consent-banner" role="dialog" aria-label="Cookie consent" style="position: fixed; bottom: 0">
+      <p>We use cookies to understand how the site is used.</p>
+      <button type="button" id="reject">Reject all</button>
+      <button type="button" id="accept">Accept all</button>
+    </div>
+    <main>
+      <h1>Example Traders</h1>
+      <form method="post" action="/subscribe">
+        <label>Email <input type="email" name="email" autocomplete="email" /></label>
+        <button type="submit">Subscribe</button>
+      </form>
+    </main>
+    <footer><a href="#">Cookie settings</a></footer>
+    <script>
+      const banner = document.getElementById('consent-banner');
+      document.getElementById('reject').addEventListener('click', () => {
+        banner.hidden = true;
+      });
+      document.getElementById('accept').addEventListener('click', () => {
+        banner.hidden = true;
+        const script = document.createElement('script');
+        script.src = 'https://replay-fixture.in/record.js';
+        document.head.append(script);
+      });
+    </script>
+  </body>
+</html>

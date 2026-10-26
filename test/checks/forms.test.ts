@@ -99,6 +99,26 @@ describe('detectW8', () => {
   it('falls back to the baseline when the scan ran out of time before the all-pages snapshot', () => {
     expect(detectW8(context({ forms: [form()], baseline: replayOn(PAGE) }))?.id).toBe('W8');
   });
+
+  // WS-11d: replay that waits for "accept" still records the form.
+  it('reports replay loaded only after accept, on the form page', () => {
+    const afterAccept = snapshot({ label: 'after-accept', requests: [request('www.clarity.ms')] });
+    const finding = detectW8(context({ forms: [form()], allPages: snapshot(), afterAccept }));
+    expect(finding?.evidence.thirdParties?.map((r) => r.host)).toEqual(['www.clarity.ms']);
+  });
+
+  it('prefers what loaded before any choice when both runs show replay', () => {
+    const allPages = snapshot({ requests: [request('www.clarity.ms')] });
+    const afterAccept = snapshot({ label: 'after-accept', requests: [request('www.hotjar.com', { count: 3 })] });
+    const finding = detectW8(context({ forms: [form()], allPages, afterAccept }));
+    expect(finding?.evidence.thirdParties?.map((r) => r.host)).toEqual(['www.clarity.ms']);
+  });
+
+  it('ignores replay after accept on another page than the form', () => {
+    const afterAccept = snapshot({ label: 'after-accept', requests: [request('www.clarity.ms')] });
+    const forms = [form({ pageUrl: contactPage })];
+    expect(detectW8(context({ forms, allPages: snapshot(), afterAccept }))).toBeUndefined();
+  });
 });
 
 describe('detectW9', () => {
