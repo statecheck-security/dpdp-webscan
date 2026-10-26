@@ -2,7 +2,7 @@
 // every request is aborted). The click paths run end to end in scan.browser.test.ts.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Browser, BrowserContext, Page } from 'playwright';
-import { findBanner, findPersistentControl } from '../src/banner.js';
+import { bannerFinder, findBanner, findPersistentControl } from '../src/banner.js';
 import { killBrowser, launchBrowser } from '../src/browser.js';
 import { silentLog } from '../src/log.js';
 
@@ -80,7 +80,51 @@ describe('findBanner', () => {
     ],
   ])('ignores %s', async (_name, body) => {
     const page = await pageWith(body);
-    expect(await findBanner(page)).toBeUndefined();
+    expect(await bannerFinder(0)(page)).toBeUndefined();
+    await page.close();
+  });
+
+  // WS-11b: "More information" is a settings control only where a CMP selector proves the consent layer.
+  it('does not take "More information" for settings on a generic banner', async () => {
+    const page = await pageWith(`
+      <div class="cookie-bar" ${fixed}><p>We use cookies.</p>
+        <button>More information</button><a href="/privacy">More info</a><button>Accept</button></div>`);
+    expect((await findBanner(page))?.buttons.map((b) => [b.label, b.role])).toEqual([
+      ['More information', 'other'],
+      ['Accept', 'accept'],
+    ]);
+    await page.close();
+  });
+
+  it('takes "More information" for settings inside a known CMP banner', async () => {
+    const page = await pageWith(`
+      <div id="CybotCookiebotDialog" ${fixed}><p>This website uses cookies.</p>
+        <a href="#">More information</a><button>Allow all</button></div>`);
+    expect((await findBanner(page))?.buttons.map((b) => [b.label, b.role])).toEqual([
+      ['More information', 'settings'],
+      ['Allow all', 'accept'],
+    ]);
+    await page.close();
+  });
+
+  it('keeps looking for a banner drawn late, within the wait', async () => {
+    const page = await pageWith(`<script>
+      setTimeout(() => {
+        document.body.insertAdjacentHTML('beforeend',
+          '<div class="cookie-bar" style="position: fixed; bottom: 0"><p>We use cookies.</p><button>Reject</button><button>Accept</button></div>');
+      }, 700);
+    </script>`);
+    expect(await bannerFinder(0)(page)).toBeUndefined();
+    expect((await bannerFinder(3_000)(page))?.buttons.map((b) => b.role)).toEqual(['reject', 'accept']);
+    await page.close();
+  });
+
+  it('gives up after the wait when there is no banner', async () => {
+    const page = await pageWith('<main><p>No banner here.</p></main>');
+    const started = Date.now();
+    expect(await bannerFinder(600)(page)).toBeUndefined();
+    expect(Date.now() - started).toBeGreaterThanOrEqual(500);
+    expect(Date.now() - started).toBeLessThan(3_000);
     await page.close();
   });
 });

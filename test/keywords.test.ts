@@ -24,6 +24,8 @@ describe('BUTTON_ROLES', () => {
     ['Customise', 'settings'],
     ['Privacy policy', 'other'],
     ['Close', 'other'],
+    // Settings only inside a known CMP banner (CMP_SETTINGS, WS-11b).
+    ['More information', 'other'],
   ])('%s → %s', (label, role) => {
     expect(roleOf(label)).toBe(role);
   });

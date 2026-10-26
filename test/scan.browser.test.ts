@@ -275,6 +275,27 @@ describe('banner checks on fixtures', () => {
     expect(result.partialReasons).toEqual([]);
   });
 
+  // WS-11b: the reject run must not leave the banner to find a reject somewhere else.
+  it.each(['banner-more-info-link', 'banner-settings-navigates'])(
+    'reports W4 with no clicks to reject on %s, not partial',
+    async (fixture) => {
+      const result = await runScan(target, scanOf(fixture).options);
+      expect(ids(result)).toEqual(['W4']);
+      expect(result.findings[0]?.evidence).toEqual({});
+      expect(result.partial).toBe(false);
+    },
+  );
+
+  it('finds a banner drawn after the page settled, given the wait', async () => {
+    const late = await runScan(target, scanOf('banner-late', { bannerWaitMs: 3_000 }).options);
+    expect(ids(late)).toEqual(['W3']);
+    expect(late.info.find((i) => i.id === 'banner')?.evidence.bannerFound).toBe(true);
+    // Without the wait it reads as no banner, so W3 cannot be checked (the v0 behaviour).
+    const once = await runScan(target, scanOf('banner-late').options);
+    expect(ids(once)).toEqual([]);
+    expect(once.info.find((i) => i.id === 'banner')?.evidence.bannerFound).toBe(false);
+  });
+
   it('reports only W7 when nothing offers a later change of mind', async () => {
     const result = await runScan(target, scanOf('no-settings-link').options);
     expect(ids(result)).toEqual(['W7']);
