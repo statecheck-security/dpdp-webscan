@@ -12,6 +12,7 @@
  */
 
 import type { TrackerCategory } from '../types.js';
+import { vendorCountry } from './vendorCountries.js';
 
 export interface TrackerEntry {
   /** A host suffix (`google-analytics.com` matches it and any subdomain) or a RegExp on the whole host. */
@@ -29,6 +30,8 @@ export interface TrackerMatch {
   category: TrackerCategory;
   sessionReplay?: true;
   paymentGateway?: true;
+  /** Where the vendor is based (src/data/vendorCountries.ts, WS-11f); absent when not known. */
+  country?: string;
 }
 
 /** The categories W1 and W3 count. `cmp` and `other` never do. */
@@ -198,11 +201,13 @@ function suffixMatches(host: string, suffix: string): boolean {
 }
 
 function toMatch(entry: TrackerEntry): TrackerMatch {
+  const country = vendorCountry(entry.vendor);
   return {
     vendor: entry.vendor,
     category: entry.category,
     ...(entry.sessionReplay ? { sessionReplay: true } : {}),
     ...(entry.paymentGateway ? { paymentGateway: true } : {}),
+    ...(country ? { country } : {}),
   };
 }
 
