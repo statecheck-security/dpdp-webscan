@@ -4,7 +4,7 @@ The engine behind **DPDPA Website Check** (`statechecksecurity.com/scan`). It lo
 
 Each finding points at the section of the Digital Personal Data Protection Act, 2023 or the DPDP Rules, 2025 it engages, labelled **settled**, **likely** or **open**. There is **no score**, and no "compliant" verdict.
 
-**Status:** v0. All sixteen checks (W1–W16) and the information items are built and tested; engine `0.11.0` on the `release/v1` branch (v1 in progress; `main` stays on `0.9.x` until v1 ships as `1.0.0`), catalogue `2026-10-25-r2`. Scans are run by hand in the Docker container below and sent to the website, which renders and emails the report. There is no hosted service yet. The build plan is kept outside the repo.
+**Status:** v0. All sixteen checks (W1–W16) and the information items are built and tested; engine `0.12.0` on the `release/v1` branch (v1 in progress; `main` stays on `0.9.x` until v1 ships as `1.0.0`), catalogue `2026-10-25-r2`. Scans are run by hand in the Docker container below and sent to the website, which renders and emails the report. There is no hosted service yet. The build plan is kept outside the repo.
 
 ## What it checks
 
@@ -31,7 +31,7 @@ The engine emits check ids and evidence only. The titles, provisions, labels and
 
 W12–W16 are absence findings: they say what we did not find on the pages we scanned, never that the site does not have it. They read English text only.
 
-Information items, with no provision and no label: `banner` (seen or not, and its vendor), `site-cookies` (the session, security and consent-state cookies W2 leaves out), `third-party-locations` (third-party hosts that are not trackers), `notice-languages` (the `lang` attributes seen) and `coverage` (the pages read, and where each published item was found).
+Information items, with no provision and no label: `banner` (seen or not, and its vendor), `site-cookies` (the session, security and consent-state cookies W2 leaves out), `third-party-locations` (third-party hosts that are not trackers), `notice-languages` (the `lang` attributes seen), `coverage` (the pages read, and where each published item was found) and, on `release/v1`, `consent-comparison` (trackers and identifier names that only appeared after accept, and after reject).
 
 ## How a scan runs
 

@@ -35,6 +35,14 @@ export const INFO_IDS = [
   'third-party-locations', // where third parties are (S.16: nothing restricted)
   'notice-languages', // languages offered (S.5(3))
   'coverage', // pages scanned and what blocked us
+  'consent-comparison', // what accept and reject each added, before scs renders it (WS-11h)
 ] as const;
 
 export type InfoId = (typeof INFO_IDS)[number];
+
+/**
+ * Ids built on release/v1 that the scs catalogue gets with the 1.0.0 release (WS-11l). The drift test
+ * skips them until then and fails once ENGINE_VERSION reaches 1.0.0 while any is still listed, so v1
+ * cannot ship ahead of the website.
+ */
+export const SCS_PENDING_INFO_IDS: readonly InfoId[] = ['consent-comparison'];

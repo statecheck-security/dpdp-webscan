@@ -124,3 +124,50 @@ describe('buildInfo', () => {
     expect(buildInfo(ctx).at(-1)?.evidence.found).toEqual([{ id: 'W14', pageUrl: PAGE }]);
   });
 });
+
+// WS-11h: what each banner choice added on the requested page.
+describe('consent-comparison', () => {
+  const comparison = (ctx: Parameters<typeof buildInfo>[0]) =>
+    buildInfo(ctx).find((i) => i.id === 'consent-comparison')?.evidence.consentComparison;
+  const run = (label: 'after-accept' | 'after-reject', parts: Parameters<typeof snapshot>[0] = {}) =>
+    snapshot({ label, requests: [], ...parts });
+
+  it('is absent unless both choice runs completed', () => {
+    expect(comparison(context({ afterReject: run('after-reject') }))).toBeUndefined();
+    expect(comparison(context({ afterAccept: run('after-accept') }))).toBeUndefined();
+  });
+
+  it('lists empty additions when neither choice loads anything', () => {
+    expect(comparison(context({ afterAccept: run('after-accept'), afterReject: run('after-reject') }))).toEqual({
+      afterAccept: { thirdParties: [], identifiers: [] },
+      afterReject: { thirdParties: [], identifiers: [] },
+    });
+  });
+
+  it('lists trackers and identifiers each choice added, leaving out what loaded before any choice', () => {
+    const baseline = snapshot({
+      requests: [request('www.google-analytics.com')],
+      cookies: [cookie('_ga', 'example.in', { setSinceMark: false })],
+    });
+    const afterAccept = run('after-accept', {
+      requests: [request('www.google-analytics.com'), request('connect.facebook.net'), request('cdn.cookielaw.org')],
+      cookies: [cookie('_ga', 'example.in'), cookie('_fbp', 'example.in'), cookie('OptanonConsent', 'example.in')],
+    });
+    const afterReject = run('after-reject', {
+      requests: [request('www.clarity.ms')],
+      storage: [storage('https://www.example.in', ['_clck'])],
+    });
+    const result = comparison(context({ baseline, afterAccept, afterReject }));
+    // Analytics loaded before any choice is W1's, not an addition; the CMP and its consent cookie are not trackers.
+    expect(result?.afterAccept.thirdParties.map((t) => t.host)).toEqual(['connect.facebook.net']);
+    expect(result?.afterAccept.identifiers.map((i) => i.name)).toEqual(['_fbp']);
+    expect(result?.afterReject.thirdParties.map((t) => t.host)).toEqual(['www.clarity.ms']);
+    expect(result?.afterReject.identifiers.map((i) => [i.store, i.name])).toEqual([['localStorage', '_clck']]);
+  });
+
+  it('carries lists only: no count compared, no ratio', () => {
+    const evidence = comparison(context({ afterAccept: run('after-accept'), afterReject: run('after-reject') }));
+    expect(Object.keys(evidence ?? {})).toEqual(['afterAccept', 'afterReject']);
+    expect(Object.keys(evidence?.afterAccept ?? {})).toEqual(['thirdParties', 'identifiers']);
+  });
+});

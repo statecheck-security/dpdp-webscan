@@ -10,7 +10,7 @@
 import type { CheckId, InfoId } from './checks.js';
 
 // Bump with any change to the result shape or a detection rule (CLAUDE.md, decision 8).
-export const ENGINE_VERSION = '0.11.0';
+export const ENGINE_VERSION = '0.12.0';
 
 /** `form` and `other` fill the slots policy pages leave free (WS-3g): a likely form page first, then any nav link. */
 export type PageReason = 'requested' | 'privacy' | 'cookies' | 'contact' | 'grievance' | 'terms' | 'form' | 'other';
@@ -91,10 +91,21 @@ export interface Evidence {
   bannerFound?: boolean;
   /** `coverage` info item: published items W12–W16 we did find, and the first page each is on. */
   found?: { id: CheckId; pageUrl: string }[];
+  /**
+   * `consent-comparison` info item (WS-11h): tracker hosts and identifier names each choice added that
+   * the requested page had not loaded before any choice. Lists only; never a count compared or a ratio.
+   */
+  consentComparison?: { afterAccept: ChoiceAdded; afterReject: ChoiceAdded };
   /** `lang` attributes seen on the scanned pages (notice-languages info item). */
   pageLang?: string[];
   /** W6, W8–W11: every form that triggered the check, in page order, at most 5 (WS-11g). */
   forms?: FormEvidence[];
+}
+
+/** What one banner choice added on the requested page (consent-comparison, WS-11h). */
+export interface ChoiceAdded {
+  thirdParties: ThirdPartyRequest[];
+  identifiers: IdentifierSet[];
 }
 
 /** A form in evidence: where it is and how it sends. Field types and names only; never values or labels. */
