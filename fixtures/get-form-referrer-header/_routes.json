@@ -1,0 +1,10 @@
+{
+  "site.fixture.in/": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/html; charset=utf-8",
+      "referrer-policy": "no-referrer, no-referrer-when-downgrade"
+    },
+    "body": "<!-- Exercises: W11's referrer policy read from the Referrer-Policy response header (WS-11g); the last known token wins. --><!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\" /><title>Referrer header</title></head><body><form method=\"get\" action=\"/subscribe\"><label>Email <input type=\"email\" name=\"email\" /></label><button type=\"submit\">Subscribe</button></form></body></html>"
+  }
+}

@@ -10,7 +10,7 @@
 import type { CheckId, InfoId } from './checks.js';
 
 // Bump with any change to the result shape or a detection rule (CLAUDE.md, decision 8).
-export const ENGINE_VERSION = '0.10.0';
+export const ENGINE_VERSION = '0.11.0';
 
 /** `form` and `other` fill the slots policy pages leave free (WS-3g): a likely form page first, then any nav link. */
 export type PageReason = 'requested' | 'privacy' | 'cookies' | 'contact' | 'grievance' | 'terms' | 'form' | 'other';
@@ -93,15 +93,38 @@ export interface Evidence {
   found?: { id: CheckId; pageUrl: string }[];
   /** `lang` attributes seen on the scanned pages (notice-languages info item). */
   pageLang?: string[];
-  form?: {
-    pageUrl: string;
-    method: 'get' | 'post' | 'dialog';
-    actionHost?: string;
-    actionScheme?: 'http' | 'https';
-    /** Field types and names only; never values. */
-    fields: { type: string; name: string }[];
-  };
+  /** W6, W8–W11: every form that triggered the check, in page order, at most 5 (WS-11g). */
+  forms?: FormEvidence[];
 }
+
+/** A form in evidence: where it is and how it sends. Field types and names only; never values or labels. */
+export interface FormEvidence {
+  pageUrl: string;
+  method: 'get' | 'post' | 'dialog';
+  actionHost?: string;
+  actionScheme?: 'http' | 'https';
+  fields: { type: string; name: string }[];
+  /**
+   * W11 only: the page's referrer policy when the page sets one (meta tag over header; WS-11g).
+   * Absent means the browser default, strict-origin-when-cross-origin, under which the query never
+   * reaches another site in a Referer.
+   */
+  referrerPolicy?: ReferrerPolicyToken;
+}
+
+/** The referrer-policy tokens of the W3C Referrer Policy spec. */
+export const REFERRER_POLICIES = [
+  'no-referrer',
+  'no-referrer-when-downgrade',
+  'origin',
+  'origin-when-cross-origin',
+  'same-origin',
+  'strict-origin',
+  'strict-origin-when-cross-origin',
+  'unsafe-url',
+] as const;
+
+export type ReferrerPolicyToken = (typeof REFERRER_POLICIES)[number];
 
 export interface Finding {
   id: CheckId;

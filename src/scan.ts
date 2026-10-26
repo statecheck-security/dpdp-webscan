@@ -127,6 +127,8 @@ export interface ScanCollection {
   persistentControlFoundOn: string[];
   forms: FormInfo[];
   texts: Map<string, PageText>;
+  /** Page URL → Referrer-Policy header, for pages that sent one (W11, WS-11g). */
+  referrerHeaders: Map<string, string>;
 }
 
 const STATUS: Record<LoadOutcome['status'], PageStatus> = {
@@ -195,6 +197,7 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
     persistentControlFoundOn: [],
     forms: [],
     texts: new Map(),
+    referrerHeaders: new Map(),
   };
 
   /** Time left for the next step, capped at one page; zero or less means stop. */
@@ -249,6 +252,9 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
       ...('httpStatus' in outcome && outcome.httpStatus !== undefined ? { httpStatus: outcome.httpStatus } : {}),
     };
     collection.pages.push(pageVisit);
+    if (outcome.status === 'loaded' && outcome.referrerPolicyHeader) {
+      collection.referrerHeaders.set(pageVisit.url, outcome.referrerPolicyHeader);
+    }
     const partial = signal.aborted ? 'scan-timeout' : partialReasonFor(outcome);
     if (partial) reasons.add(partial);
     log('page-visited', {
@@ -387,6 +393,7 @@ function checkContext(collection: ScanCollection, trackers: TrackerLookup): Chec
     persistentControlFoundOn: collection.persistentControlFoundOn,
     forms: collection.forms,
     texts: collection.texts,
+    referrerHeaders: collection.referrerHeaders,
     trackers,
   };
 }
