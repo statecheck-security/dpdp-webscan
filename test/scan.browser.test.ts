@@ -107,6 +107,15 @@ describe('collectScan', () => {
     expect(collection.partialReasons).toEqual([]);
   });
 
+  // WS-11i: the result names the skipped page and why.
+  it('lists the robots-disallowed page as skipped in coverage', async () => {
+    const result = await runScan(target, scanOf('robots-disallow').options);
+    const coverage = result.info.find((i) => i.id === 'coverage')?.evidence;
+    expect(coverage?.pagesSkipped).toEqual([
+      { url: 'https://site.fixture.in/contact', reason: 'contact', skippedFor: 'robots' },
+    ]);
+  });
+
   it("records nothing from the robots.txt fetch page, even when it serves the site's app", async () => {
     const { options } = scanOf('robots-serves-app');
     const collection = await collectScan(target, options);
@@ -192,6 +201,17 @@ describe('collectScan', () => {
       ['privacy', 'loaded'],
     ]);
     expect(collection.partialReasons).toEqual(['scan-timeout']);
+  });
+
+  // WS-11i: a page that never went idle is flagged; pages never started for lack of time are in coverage.
+  it('flags the page that never settled and lists the page it had no time for', async () => {
+    const result = await runScan(target, scanOf('slow-pages', { scanTimeoutMs: 5_000 }).options);
+    expect(result.pages.find((p) => p.reason === 'privacy')?.settled).toBe(false);
+    expect(result.pages.find((p) => p.reason === 'requested')).not.toHaveProperty('settled');
+    const coverage = result.info.find((i) => i.id === 'coverage')?.evidence;
+    expect(coverage?.pagesSkipped).toEqual([
+      { url: 'https://site.fixture.in/contact', reason: 'contact', skippedFor: 'time' },
+    ]);
   });
 
   it('finishes a meta-refresh loop within the scan budget', async () => {
