@@ -1,0 +1,22 @@
+<!-- Exercises: W4 and a settings control that leaves the page (WS-11b). The banner's "Cookie settings" is a link to /cookie-settings, a separate page with a consent dialog and "Reject all". Leaving the page is not opening a consent layer, so the reject run stops with no control: W4 without clicksToReject (it used to reject on the new page and report 2 clicks). A footer "Manage cookies" link keeps W7 quiet. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Settings navigates</title>
+  </head>
+  <body>
+    <div class="cookie-notice" style="position: fixed; bottom: 0">
+      <p>We use cookies for analytics.</p>
+      <a href="/cookie-settings">Cookie settings</a>
+      <button type="button" id="accept">Accept all</button>
+    </div>
+    <main><p>An ordinary page.</p></main>
+    <footer><a href="#">Manage cookies</a></footer>
+    <script>
+      document.getElementById('accept').addEventListener('click', () => {
+        document.querySelector('.cookie-notice').hidden = true;
+      });
+    </script>
+  </body>
+</html>

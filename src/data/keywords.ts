@@ -106,10 +106,18 @@ export const BUTTON_ROLES: readonly { role: 'reject' | 'settings' | 'accept'; la
   },
   {
     role: 'settings',
-    label: /\b(settings|preferences|manage|customi[sz]e|options|choices|let me choose|more info(rmation)?)\b/i,
+    label: /\b(settings|preferences|manage|customi[sz]e|options|choices|let me choose)\b/i,
   },
   { role: 'accept', label: /\b(accept|agree|allow|got it|ok(ay)?|yes|i understand|understood|continue)\b/i },
 ];
+
+/**
+ * A settings label only inside a known CMP's banner, where the selector already
+ * proves the box is the consent layer (WS-11b). On a generic banner "More
+ * information" is usually a link to the policy, and reading it as settings
+ * made the reject run click away from the banner.
+ */
+export const CMP_SETTINGS = /\bmore info(rmation)?\b/i;
 
 /**
  * On a preferences layer with no reject control: a control that saves the

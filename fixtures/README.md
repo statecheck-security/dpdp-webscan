@@ -35,5 +35,8 @@ Local static pages the engine is tested against (plan WS-8). `test/fixtures.ts` 
 | `bot-wall/`                                       | 403 with a challenge marker → `blocked-bot-wall`, partial                                                                                                  |
 | `form-page-slot/`                                 | Free page slots (WS-3g): one policy link, then a form page and an other page; login and PDF links never used; W11 found on the form page                   |
 | `storage-key-email/`                              | Exit-side redaction: a storage key named with an email address makes `runScan` throw `RedactionError` instead of returning the result                      |
+| `banner-more-info-link/`                          | WS-11b: "More information" on a generic banner is not a settings control; W4 with no clicks to reject                                                      |
+| `banner-settings-navigates/`                      | WS-11b: a settings link that leaves the page opens no consent layer; W4 with no clicks to reject                                                           |
+| `banner-late/`                                    | WS-11b: banner drawn 1.5 s after load is found with the banner wait; its reject is ignored (W3)                                                            |
 
 **Rules.** No real personal data: `example.in` addresses and obviously fake names only. Redaction fixtures carry the sentinel `SECRET-VALUE-DO-NOT-RECORD` in a cookie value, a form value and page text, and tests assert it never appears in a result. Never copy markup from a real site.

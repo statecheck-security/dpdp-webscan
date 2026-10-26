@@ -1,0 +1,30 @@
+<!-- Exercises: late banners (WS-11b). The banner is drawn 1.5 s after load, as a CMP script often does, after the page has gone network-idle. With the banner wait it is found, and its reject is ignored: a tracker pixel fires after "Reject all", so W3. A footer "Cookie settings" link keeps W7 quiet. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Late banner</title>
+  </head>
+  <body>
+    <main><p>An ordinary page.</p></main>
+    <footer><a href="#">Cookie settings</a></footer>
+    <script>
+      setTimeout(() => {
+        const banner = document.createElement('div');
+        banner.setAttribute('role', 'dialog');
+        banner.setAttribute('aria-label', 'Cookie consent');
+        banner.style.cssText = 'position: fixed; bottom: 0';
+        banner.innerHTML =
+          '<p>We use cookies for analytics.</p><button type="button" id="reject">Reject all</button><button type="button" id="accept">Accept all</button>';
+        document.body.append(banner);
+        document.getElementById('reject').addEventListener('click', () => {
+          banner.hidden = true;
+          new Image().src = 'https://tracker-fixture.in/pixel.gif?choice=reject';
+        });
+        document.getElementById('accept').addEventListener('click', () => {
+          banner.hidden = true;
+        });
+      }, 1500);
+    </script>
+  </body>
+</html>

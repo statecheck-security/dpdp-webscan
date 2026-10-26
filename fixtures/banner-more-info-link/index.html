@@ -1,0 +1,22 @@
+<!-- Exercises: W4 and the "More information" rule (WS-11b). A generic banner offers "Accept" and a "More information" link to the privacy page, where a consent dialog with "Reject all" sits. "More information" is not a settings control on a generic banner, so the reject run clicks nothing: W4 without clicksToReject (it used to follow the link and report 2 clicks). A footer "Manage cookies" link keeps W7 quiet. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>More information link</title>
+  </head>
+  <body>
+    <div class="cookie-notice" style="position: fixed; bottom: 0">
+      <p>This site uses cookies to improve your experience.</p>
+      <a href="/privacy">More information</a>
+      <button type="button" id="accept">Accept</button>
+    </div>
+    <main><p>An ordinary page.</p></main>
+    <footer><a href="#">Manage cookies</a></footer>
+    <script>
+      document.getElementById('accept').addEventListener('click', () => {
+        document.querySelector('.cookie-notice').hidden = true;
+      });
+    </script>
+  </body>
+</html>
