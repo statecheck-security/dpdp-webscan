@@ -7,11 +7,14 @@
  * Redaction at the point of entry (decision 5): hostnames only, never URLs;
  * cookies are read field by field without their value; storage keys are
  * listed inside the page, so values never reach Node. A test plants a
- * sentinel value and checks it never appears in a snapshot.
+ * sentinel value and checks it never appears in a snapshot. The one
+ * exception, Google Consent Mode's `gcs` code on Google tag hosts, is read by
+ * src/consentMode.ts and kept only as a yes/no count (WS-11j, decision 34).
  */
 
 import type { BrowserContext, Page, Request } from 'playwright';
 import { evaluateIn, withTimeout } from './browser.js';
+import { consentModeDenied } from './consentMode.js';
 import type { BlockedRequest } from './egress.js';
 import { registrableDomain } from './pages.js';
 import { pageUrlOfString } from './urls.js';
@@ -35,6 +38,8 @@ export interface CapturedRequest {
 
 export interface RequestCount extends CapturedRequest {
   count: number;
+  /** How many of `count` carried a Consent Mode "denied" code (src/consentMode.ts); omitted when none. */
+  consentDenied?: number;
 }
 
 export interface CapturedCookie {
@@ -93,6 +98,8 @@ export interface CaptureOptions {
   /** The context's refusal list (src/browser.ts): hosts the guard blocked are never reported as contacted. */
   blocked: readonly BlockedRequest[];
   now?: () => Date;
+  /** Tests: the hosts whose Consent Mode codes are read. Defaults to Google's (CONSENT_MODE_HOSTS). */
+  consentModeHosts?: readonly string[];
 }
 
 export function isThirdParty(host: string, siteDomain: string): boolean {
@@ -141,7 +148,7 @@ interface FrameStorage {
 export function attachCapture(context: BrowserContext, opts: CaptureOptions): Capture {
   const now = opts.now ?? (() => new Date());
   let siteDomain = opts.registrableDomain;
-  const requests: Omit<CapturedRequest, 'isThirdParty'>[] = [];
+  const requests: (Omit<CapturedRequest, 'isThirdParty'> & { denied: boolean })[] = [];
   let dropped = 0;
   const excluded = new WeakSet<Page>();
 
@@ -162,6 +169,8 @@ export function attachCapture(context: BrowserContext, opts: CaptureOptions): Ca
       host: url.hostname.toLowerCase(),
       pageUrl: pageOf(request) ?? '',
       resourceType: request.resourceType(),
+      // Only the yes/no answer is kept; the URL goes no further (decision 34).
+      denied: consentModeDenied(url, opts.consentModeHosts),
     });
   };
   context.on('request', onRequest);
@@ -253,8 +262,19 @@ export function attachCapture(context: BrowserContext, opts: CaptureOptions): Ca
         if (refused.has(r.host)) continue;
         const id = `${r.host} ${r.pageUrl} ${r.resourceType}`;
         const entry = counts.get(id);
-        if (entry) entry.count += 1;
-        else counts.set(id, { ...r, isThirdParty: isThirdParty(r.host, siteDomain), count: 1 });
+        if (entry) {
+          entry.count += 1;
+          if (r.denied) entry.consentDenied = (entry.consentDenied ?? 0) + 1;
+        } else {
+          counts.set(id, {
+            host: r.host,
+            pageUrl: r.pageUrl,
+            resourceType: r.resourceType,
+            isThirdParty: isThirdParty(r.host, siteDomain),
+            count: 1,
+            ...(r.denied ? { consentDenied: 1 } : {}),
+          });
+        }
       }
 
       const nowSeconds = taken.getTime() / 1000;
