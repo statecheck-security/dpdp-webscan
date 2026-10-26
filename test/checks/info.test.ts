@@ -14,7 +14,7 @@ const text = (t: string, langs = ['en']) => ({ text: t, langs, hasMailto: false 
 describe('buildInfo', () => {
   it('reports only coverage when the requested page did not load', () => {
     const ctx = context({ pages: [{ url: PAGE, reason: 'requested', status: 'blocked-bot-wall', httpStatus: 403 }] });
-    expect(buildInfo(ctx)).toEqual([{ id: 'coverage', evidence: { pagesSearched: [], found: [] } }]);
+    expect(buildInfo(ctx)).toEqual([{ id: 'coverage', evidence: { pagesSearched: [], found: [], pagesSkipped: [] } }]);
   });
 
   it('says no banner was seen, lists non-tracker third parties before any click, and the languages', () => {
@@ -106,6 +106,7 @@ describe('buildInfo', () => {
           { id: 'W14', pageUrl: `${PAGE}grievance` },
           { id: 'W15', pageUrl: `${PAGE}privacy` },
         ],
+        pagesSkipped: [],
       },
     });
   });
@@ -169,5 +170,41 @@ describe('consent-comparison', () => {
     const evidence = comparison(context({ afterAccept: run('after-accept'), afterReject: run('after-reject') }));
     expect(Object.keys(evidence ?? {})).toEqual(['afterAccept', 'afterReject']);
     expect(Object.keys(evidence?.afterAccept ?? {})).toEqual(['thirdParties', 'identifiers']);
+  });
+});
+
+// WS-11i: pages chosen but never loaded.
+describe('coverage of skipped pages', () => {
+  const pagesSkipped = (ctx: Parameters<typeof buildInfo>[0]) =>
+    buildInfo(ctx).find((i) => i.id === 'coverage')?.evidence.pagesSkipped;
+
+  it('lists pages robots.txt disallowed and pages the scan ran out of time for, robots first', () => {
+    const ctx = context({
+      pages: [
+        { url: PAGE, reason: 'requested', status: 'loaded', httpStatus: 200 },
+        { url: `${PAGE}privacy`, reason: 'privacy', status: 'loaded', httpStatus: 200, settled: false },
+        { url: `${PAGE}contact`, reason: 'contact', status: 'skipped-robots' },
+      ],
+      plannedPages: [
+        { url: `${PAGE}privacy`, reason: 'privacy' },
+        { url: `${PAGE}contact`, reason: 'contact' },
+        { url: `${PAGE}terms`, reason: 'terms' },
+      ],
+    });
+    expect(pagesSkipped(ctx)).toEqual([
+      { url: `${PAGE}contact`, reason: 'contact', skippedFor: 'robots' },
+      { url: `${PAGE}terms`, reason: 'terms', skippedFor: 'time' },
+    ]);
+  });
+
+  it('does not count a page that loaded, timed out or errored as skipped', () => {
+    const ctx = context({
+      pages: [
+        { url: PAGE, reason: 'requested', status: 'loaded', httpStatus: 200 },
+        { url: `${PAGE}privacy`, reason: 'privacy', status: 'timeout' },
+      ],
+      plannedPages: [{ url: `${PAGE}privacy`, reason: 'privacy' }],
+    });
+    expect(pagesSkipped(ctx)).toEqual([]);
   });
 });

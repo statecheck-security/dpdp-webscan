@@ -8,7 +8,7 @@ import type { CaptureSnapshot } from '../capture.js';
 import type { FormInfo } from '../forms.js';
 import type { TrackerMatch } from '../data/trackers.js';
 import type { PageText } from '../text.js';
-import type { PageVisit } from '../types.js';
+import type { PageReason, PageVisit } from '../types.js';
 
 /** `categorise` from src/data/trackers.ts in production; tests add the fixture hosts. */
 export type TrackerLookup = (host: string) => TrackerMatch | undefined;
@@ -32,6 +32,8 @@ export interface CheckContext {
   persistentControlFoundOn: string[];
   /** Forms on all scanned pages. */
   forms: FormInfo[];
+  /** Extra pages chosen for the scan (WS-11i); those absent from `pages` were never started for lack of time. */
+  plannedPages?: readonly { url: string; reason: PageReason }[];
   /** Page URL → its Referrer-Policy response header, as sent (W11, WS-11g). Never leaves the context. */
   referrerHeaders?: ReadonlyMap<string, string>;
   /** Page URL → text. Never leaves the context. */

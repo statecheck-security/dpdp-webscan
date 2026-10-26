@@ -10,7 +10,7 @@
 import type { CheckId, InfoId } from './checks.js';
 
 // Bump with any change to the result shape or a detection rule (CLAUDE.md, decision 8).
-export const ENGINE_VERSION = '0.12.0';
+export const ENGINE_VERSION = '0.13.0';
 
 /** `form` and `other` fill the slots policy pages leave free (WS-3g): a likely form page first, then any nav link. */
 export type PageReason = 'requested' | 'privacy' | 'cookies' | 'contact' | 'grievance' | 'terms' | 'form' | 'other';
@@ -28,6 +28,18 @@ export interface PageVisit {
   reason: PageReason;
   status: PageStatus;
   httpStatus?: number;
+  /**
+   * Present (and false) only for a loaded page that never went network-idle before we read it
+   * (WS-11i): scripts were still loading, so the report can say the page may hold more than we saw.
+   */
+  settled?: false;
+}
+
+/** A page chosen for the scan but not loaded (WS-11i): robots.txt disallowed it, or the scan ran out of time. */
+export interface SkippedPage {
+  url: string;
+  reason: PageReason;
+  skippedFor: 'robots' | 'time';
 }
 
 /** Machine codes for why a scan is partial (WS-3a). scs renders the words. */
@@ -89,6 +101,8 @@ export interface Evidence {
   bannerVendor?: string;
   /** `banner` info item: whether we saw a consent banner on the requested page. */
   bannerFound?: boolean;
+  /** `coverage` info item: pages chosen but not loaded, and why (WS-11i). */
+  pagesSkipped?: SkippedPage[];
   /** `coverage` info item: published items W12–W16 we did find, and the first page each is on. */
   found?: { id: CheckId; pageUrl: string }[];
   /**

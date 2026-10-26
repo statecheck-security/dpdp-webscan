@@ -127,6 +127,8 @@ export interface ScanCollection {
   persistentControlFoundOn: string[];
   forms: FormInfo[];
   texts: Map<string, PageText>;
+  /** The extra pages chosen for the scan, recorded like page URLs; coverage lists those never loaded (WS-11i). */
+  plannedPages: { url: string; reason: PageReason }[];
   /** Page URL → Referrer-Policy header, for pages that sent one (W11, WS-11g). */
   referrerHeaders: Map<string, string>;
 }
@@ -198,6 +200,7 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
     forms: [],
     texts: new Map(),
     referrerHeaders: new Map(),
+    plannedPages: [],
   };
 
   /** Time left for the next step, capped at one page; zero or less means stop. */
@@ -250,6 +253,7 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
       reason,
       status: STATUS[outcome.status],
       ...('httpStatus' in outcome && outcome.httpStatus !== undefined ? { httpStatus: outcome.httpStatus } : {}),
+      ...(outcome.status === 'loaded' && !outcome.settled ? { settled: false as const } : {}),
     };
     collection.pages.push(pageVisit);
     if (outcome.status === 'loaded' && outcome.referrerPolicyHeader) {
@@ -338,6 +342,7 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
     const unreachable: RobotsFetch = { status: 'unreachable' };
     const robots = robotsPolicy(await guarded('robots', () => fetchRobots(site.origin), unreachable));
     const chosen = await guarded('discover', () => discoverPages(base.page, site, robots), []);
+    collection.plannedPages = chosen.map((p) => ({ url: pageUrlOfString(p.url) ?? p.url, reason: p.reason }));
 
     // Step 2: reject, in its own fresh context.
     if (collection.banner) {
@@ -394,6 +399,7 @@ function checkContext(collection: ScanCollection, trackers: TrackerLookup): Chec
     forms: collection.forms,
     texts: collection.texts,
     referrerHeaders: collection.referrerHeaders,
+    plannedPages: collection.plannedPages,
     trackers,
   };
 }
