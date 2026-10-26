@@ -38,5 +38,7 @@ Local static pages the engine is tested against (plan WS-8). `test/fixtures.ts` 
 | `banner-more-info-link/`                          | WS-11b: "More information" on a generic banner is not a settings control; W4 with no clicks to reject                                                      |
 | `banner-settings-navigates/`                      | WS-11b: a settings link that leaves the page opens no consent layer; W4 with no clicks to reject                                                           |
 | `banner-late/`                                    | WS-11b: banner drawn 1.5 s after load is found with the banner wait; its reject is ignored (W3)                                                            |
+| `banner-iframe/`                                  | WS-11c: banner drawn in a consent frame from `cmp-fixture.in` (allowed in tests via `fixtureCmpFrames`); reject clicked inside the frame is ignored (W3)   |
+| `banner-iframe-unknown/`                          | WS-11c: consent-looking banner in a frame from `forms-fixture.in`, not an allowed frame domain: never searched, so no banner                               |
 
 **Rules.** No real personal data: `example.in` addresses and obviously fake names only. Redaction fixtures carry the sentinel `SECRET-VALUE-DO-NOT-RECORD` in a cookie value, a form value and page text, and tests assert it never appears in a result. Never copy markup from a real site.

@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Browser } from 'playwright';
 import { killBrowser, launchBrowser } from '../src/browser.js';
 import type { CaptureSnapshot } from '../src/capture.js';
+import { CMP_FRAMES } from '../src/data/cmps.js';
 import { TargetError } from '../src/guard.js';
 import { silentLog } from '../src/log.js';
 import { RedactionError } from '../src/result.js';
@@ -294,6 +295,28 @@ describe('banner checks on fixtures', () => {
     const once = await runScan(target, scanOf('banner-late').options);
     expect(ids(once)).toEqual([]);
     expect(once.info.find((i) => i.id === 'banner')?.evidence.bannerFound).toBe(false);
+  });
+
+  // WS-11c: banners drawn in a consent frame are found and clicked there; other frames are never entered.
+  it('finds a banner in an allowed consent frame and clicks reject inside it', async () => {
+    const result = await runScan(target, scanOf('banner-iframe').options);
+    expect(ids(result)).toEqual(['W3']);
+    expect(result.findings[0]?.evidence.thirdParties?.map((t) => t.host)).toEqual(['tracker-fixture.in']);
+    expect(result.info.find((i) => i.id === 'banner')?.evidence).toMatchObject({
+      bannerFound: true,
+      bannerVendor: 'CMP Fixture',
+    });
+    expect(result.partial).toBe(false);
+  });
+
+  it('does not enter a frame whose domain is not on the CMP frame list', async () => {
+    const unknown = await runScan(target, scanOf('banner-iframe-unknown').options);
+    expect(ids(unknown)).toEqual([]);
+    expect(unknown.info.find((i) => i.id === 'banner')?.evidence.bannerFound).toBe(false);
+    // The same consent frame as above, with only the production list: not searched.
+    const production = await runScan(target, scanOf('banner-iframe', { cmpFrames: CMP_FRAMES }).options);
+    expect(ids(production)).toEqual([]);
+    expect(production.info.find((i) => i.id === 'banner')?.evidence.bannerFound).toBe(false);
   });
 
   it('reports only W7 when nothing offers a later change of mind', async () => {
