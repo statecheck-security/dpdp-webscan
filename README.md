@@ -4,7 +4,7 @@ The engine behind **DPDPA Website Check** (`statechecksecurity.com/scan`). It lo
 
 Each finding points at the section of the Digital Personal Data Protection Act, 2023 or the DPDP Rules, 2025 it engages, labelled **settled**, **likely** or **open**. There is **no score**, and no "compliant" verdict.
 
-**Status:** v0. All sixteen checks (W1–W16) and the information items are built and tested; engine `0.13.0` on the `release/v1` branch (v1 in progress; `main` stays on `0.9.x` until v1 ships as `1.0.0`), catalogue `2026-10-25-r2`. Scans are run by hand in the Docker container below and sent to the website, which renders and emails the report. There is no hosted service yet. The build plan is kept outside the repo.
+**Status:** v0. All sixteen checks (W1–W16) and the information items are built and tested; engine `0.14.0` on the `release/v1` branch (v1 in progress; `main` stays on `0.9.x` until v1 ships as `1.0.0`), catalogue `2026-10-25-r2`. Scans are run by hand in the Docker container below and sent to the website, which renders and emails the report. There is no hosted service yet. The build plan is kept outside the repo.
 
 ## What it checks
 
@@ -82,7 +82,7 @@ One JSON object per scan:
 - `findings`: `{ id, evidence }` for W1–W16, in id order.
 - `info`: the information items above.
 
-Evidence holds hostnames (never full URLs with query strings) with the vendor and, when known, the country its company is based in (from the vendor's own legal pages; `src/data/vendorCountries.ts`, information only), cookie and storage names, form field types and names (every offending form, at most 5 per finding; W11 adds the page's referrer policy when it sets one), page URLs and short quotes. Before a result leaves the engine, `assertRedacted` walks it and refuses anything value-shaped: a long `name=value` token, an email address, an over-long string, or a score-like key. `scan:send` checks again, in case the file was edited.
+Evidence holds hostnames (never full URLs with query strings) with the vendor and, when known, the country its company is based in (from the vendor's own legal pages; `src/data/vendorCountries.ts`, information only), cookie and storage names, form field types and names (every offending form, at most 5 per finding; W11 adds the page's referrer policy when it sets one), page URLs and short quotes. One exception to "hostnames only": on Google tag hosts the engine reads Google Consent Mode's `gcs` code and keeps only whether it said "denied" (`consentDenied`), never the code or the rest of the URL. Before a result leaves the engine, `assertRedacted` walks it and refuses anything value-shaped: a long `name=value` token, an email address, an over-long string, or a score-like key. `scan:send` checks again, in case the file was edited.
 
 ## Docker (egress-restricted scans)
 

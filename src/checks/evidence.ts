@@ -14,9 +14,11 @@ import type { TrackerLookup } from './context.js';
 /** Third-party requests in a snapshot, one entry per host and page, with the vendor when the list knows it. */
 export function trackerRequests(snapshot: CaptureSnapshot, trackers: TrackerLookup): ThirdPartyRequest[] {
   const byHost = new Map<string, ThirdPartyRequest>();
+  const denied = new Map<string, number>();
   for (const r of snapshot.requests) {
     if (!r.isThirdParty) continue;
     const id = `${r.host} ${r.pageUrl}`;
+    denied.set(id, (denied.get(id) ?? 0) + (r.consentDenied ?? 0));
     const entry = byHost.get(id);
     if (entry) {
       entry.count += r.count;
@@ -31,6 +33,10 @@ export function trackerRequests(snapshot: CaptureSnapshot, trackers: TrackerLook
       pageUrl: r.pageUrl,
       count: r.count,
     });
+  }
+  // Consent Mode (WS-11j): only when every request to the host from that page said "denied".
+  for (const [id, entry] of byHost) {
+    if (denied.get(id) === entry.count) entry.consentDenied = true;
   }
   return [...byHost.values()].sort((a, b) => a.host.localeCompare(b.host) || a.pageUrl.localeCompare(b.pageUrl));
 }

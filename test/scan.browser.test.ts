@@ -279,6 +279,29 @@ describe('banner checks on fixtures', () => {
     expect(result.partial).toBe(false);
   });
 
+  // WS-11j: a tag that still fires after reject, marked "denied"; nothing else of its URL reaches the result.
+  it('marks Consent Mode denied pings after reject, and keeps the rest of the URL out', async () => {
+    const result = await runScan(
+      target,
+      scanOf('consent-mode-denied', { consentModeHosts: ['tracker-fixture.in'] }).options,
+    );
+    expect(ids(result)).toEqual(['W3']);
+    expect(result.findings[0]?.evidence.thirdParties).toEqual([
+      expect.objectContaining({ host: 'tracker-fixture.in', consentDenied: true }),
+    ]);
+    const comparison = result.info.find((i) => i.id === 'consent-comparison')?.evidence.consentComparison;
+    expect(comparison?.afterAccept.thirdParties[0]).not.toHaveProperty('consentDenied');
+    const json = JSON.stringify(result);
+    expect(json).not.toContain('SECRET-VALUE-DO-NOT-RECORD');
+    expect(json).not.toContain('G100');
+    expect(json).not.toContain('gcs');
+  });
+
+  it('reads Consent Mode codes on Google tag hosts only', async () => {
+    const result = await runScan(target, scanOf('consent-mode-denied').options);
+    expect(result.findings[0]?.evidence.thirdParties?.[0]).not.toHaveProperty('consentDenied');
+  });
+
   // WS-11h: the same tracker after either choice, and what each choice set.
   it('compares what accept and reject each added', async () => {
     const result = await runScan(target, scanOf('reject-ignored').options);

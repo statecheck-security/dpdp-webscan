@@ -99,6 +99,8 @@ export interface ScanOptions {
   afterClickMs?: number;
   /** Defaults to BANNER_WAIT_MS (banner.ts). Tests shorten it: most fixture banners are in the HTML. */
   bannerWaitMs?: number;
+  /** Tests: hosts whose Consent Mode codes are read (the fake vendors). Defaults to CONSENT_MODE_HOSTS. */
+  consentModeHosts?: readonly string[];
   /** Tests: allow the fixture CMP's frame domain. Defaults to CMP_FRAMES (src/data/cmps.ts). */
   cmpFrames?: readonly CmpFrame[];
   /** Tests: fixture routing and a fake dial for every context (test/fixtures.ts). */
@@ -234,7 +236,12 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
       ...opts.contextOptions,
     });
     contexts.push(hardened.context);
-    const capture = attachCapture(hardened.context, { registrableDomain: siteDomain, blocked: hardened.blocked, now });
+    const capture = attachCapture(hardened.context, {
+      registrableDomain: siteDomain,
+      blocked: hardened.blocked,
+      now,
+      ...(opts.consentModeHosts ? { consentModeHosts: opts.consentModeHosts } : {}),
+    });
     const page = await hardened.context.newPage();
     return { ...hardened, page, capture };
   }

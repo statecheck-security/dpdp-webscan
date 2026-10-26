@@ -16,6 +16,31 @@ describe('detectW3', () => {
     expect(detectW3(context({ afterReject: afterReject({}) }))).toBeUndefined();
   });
 
+  // WS-11j: Consent Mode pings still count for W3, marked when every request said "denied".
+  it('marks a host whose every request after the click carried the denied code', () => {
+    const run = afterReject({
+      requests: [
+        request('region1.google-analytics.com', { count: 2, consentDenied: 2 }),
+        request('www.googletagmanager.com', { count: 3, consentDenied: 1 }),
+      ],
+    });
+    const parties = detectW3(context({ afterReject: run }))?.evidence.thirdParties;
+    expect(parties?.map((t) => [t.host, t.consentDenied ?? false])).toEqual([
+      ['region1.google-analytics.com', true],
+      ['www.googletagmanager.com', false],
+    ]);
+  });
+
+  it('counts denied requests across resource types of one host and page', () => {
+    const run = afterReject({
+      requests: [
+        request('region1.google-analytics.com', { resourceType: 'ping', count: 1, consentDenied: 1 }),
+        request('region1.google-analytics.com', { resourceType: 'image', count: 1 }),
+      ],
+    });
+    expect(detectW3(context({ afterReject: run }))?.evidence.thirdParties?.[0]).not.toHaveProperty('consentDenied');
+  });
+
   // WS-11d: a CMP saving or checking the choice is not tracking.
   it('is quiet when only CMP endpoints are contacted after the click', () => {
     const run = afterReject({
