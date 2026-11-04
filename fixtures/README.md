@@ -41,5 +41,8 @@ Local static pages the engine is tested against (plan WS-8). `test/fixtures.ts` 
 | `banner-iframe/`                                  | WS-11c: banner drawn in a consent frame from `cmp-fixture.in` (allowed in tests via `fixtureCmpFrames`); reject clicked inside the frame is ignored (W3)   |
 | `banner-iframe-unknown/`                          | WS-11c: consent-looking banner in a frame from `forms-fixture.in`, not an allowed frame domain: never searched, so no banner                               |
 | `replay-after-accept/`                            | WS-11d: session replay loads only after "Accept all", on a page with an email form (W8 from the accept run)                                                |
+| `get-form-unsafe-referrer/`                       | WS-11g: two GET forms with email (both listed in W11), `<meta name=referrer content=unsafe-url>` and a tracker on the page (W1)                            |
+| `get-form-referrer-header/`                       | WS-11g: W11 reads the referrer policy from the `Referrer-Policy` header (`_routes.json`); the last known token wins                                        |
+| `consent-mode-denied/`                            | WS-11j: reject still sends a tag request marked `gcs=G100` (W3, `consentDenied`); the sentinel in the same query string never reaches the result           |
 
 **Rules.** No real personal data: `example.in` addresses and obviously fake names only. Redaction fixtures carry the sentinel `SECRET-VALUE-DO-NOT-RECORD` in a cookie value, a form value and page text, and tests assert it never appears in a result. Never copy markup from a real site.

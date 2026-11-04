@@ -99,6 +99,8 @@ export interface ScanOptions {
   afterClickMs?: number;
   /** Defaults to BANNER_WAIT_MS (banner.ts). Tests shorten it: most fixture banners are in the HTML. */
   bannerWaitMs?: number;
+  /** Tests: hosts whose Consent Mode codes are read (the fake vendors). Defaults to CONSENT_MODE_HOSTS. */
+  consentModeHosts?: readonly string[];
   /** Tests: allow the fixture CMP's frame domain. Defaults to CMP_FRAMES (src/data/cmps.ts). */
   cmpFrames?: readonly CmpFrame[];
   /** Tests: fixture routing and a fake dial for every context (test/fixtures.ts). */
@@ -127,6 +129,10 @@ export interface ScanCollection {
   persistentControlFoundOn: string[];
   forms: FormInfo[];
   texts: Map<string, PageText>;
+  /** The extra pages chosen for the scan, recorded like page URLs; coverage lists those never loaded (WS-11i). */
+  plannedPages: { url: string; reason: PageReason }[];
+  /** Page URL → Referrer-Policy header, for pages that sent one (W11, WS-11g). */
+  referrerHeaders: Map<string, string>;
 }
 
 const STATUS: Record<LoadOutcome['status'], PageStatus> = {
@@ -195,6 +201,8 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
     persistentControlFoundOn: [],
     forms: [],
     texts: new Map(),
+    referrerHeaders: new Map(),
+    plannedPages: [],
   };
 
   /** Time left for the next step, capped at one page; zero or less means stop. */
@@ -228,7 +236,12 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
       ...opts.contextOptions,
     });
     contexts.push(hardened.context);
-    const capture = attachCapture(hardened.context, { registrableDomain: siteDomain, blocked: hardened.blocked, now });
+    const capture = attachCapture(hardened.context, {
+      registrableDomain: siteDomain,
+      blocked: hardened.blocked,
+      now,
+      ...(opts.consentModeHosts ? { consentModeHosts: opts.consentModeHosts } : {}),
+    });
     const page = await hardened.context.newPage();
     return { ...hardened, page, capture };
   }
@@ -247,8 +260,12 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
       reason,
       status: STATUS[outcome.status],
       ...('httpStatus' in outcome && outcome.httpStatus !== undefined ? { httpStatus: outcome.httpStatus } : {}),
+      ...(outcome.status === 'loaded' && !outcome.settled ? { settled: false as const } : {}),
     };
     collection.pages.push(pageVisit);
+    if (outcome.status === 'loaded' && outcome.referrerPolicyHeader) {
+      collection.referrerHeaders.set(pageVisit.url, outcome.referrerPolicyHeader);
+    }
     const partial = signal.aborted ? 'scan-timeout' : partialReasonFor(outcome);
     if (partial) reasons.add(partial);
     log('page-visited', {
@@ -332,6 +349,7 @@ export async function collectScan(target: URL, opts: ScanOptions = {}): Promise<
     const unreachable: RobotsFetch = { status: 'unreachable' };
     const robots = robotsPolicy(await guarded('robots', () => fetchRobots(site.origin), unreachable));
     const chosen = await guarded('discover', () => discoverPages(base.page, site, robots), []);
+    collection.plannedPages = chosen.map((p) => ({ url: pageUrlOfString(p.url) ?? p.url, reason: p.reason }));
 
     // Step 2: reject, in its own fresh context.
     if (collection.banner) {
@@ -387,6 +405,8 @@ function checkContext(collection: ScanCollection, trackers: TrackerLookup): Chec
     persistentControlFoundOn: collection.persistentControlFoundOn,
     forms: collection.forms,
     texts: collection.texts,
+    referrerHeaders: collection.referrerHeaders,
+    plannedPages: collection.plannedPages,
     trackers,
   };
 }

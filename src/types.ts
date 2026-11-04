@@ -10,7 +10,7 @@
 import type { CheckId, InfoId } from './checks.js';
 
 // Bump with any change to the result shape or a detection rule (CLAUDE.md, decision 8).
-export const ENGINE_VERSION = '0.9.6';
+export const ENGINE_VERSION = '1.0.0';
 
 /** `form` and `other` fill the slots policy pages leave free (WS-3g): a likely form page first, then any nav link. */
 export type PageReason = 'requested' | 'privacy' | 'cookies' | 'contact' | 'grievance' | 'terms' | 'form' | 'other';
@@ -28,6 +28,18 @@ export interface PageVisit {
   reason: PageReason;
   status: PageStatus;
   httpStatus?: number;
+  /**
+   * Present (and false) only for a loaded page that never went network-idle before we read it
+   * (WS-11i): scripts were still loading, so the report can say the page may hold more than we saw.
+   */
+  settled?: false;
+}
+
+/** A page chosen for the scan but not loaded (WS-11i): robots.txt disallowed it, or the scan ran out of time. */
+export interface SkippedPage {
+  url: string;
+  reason: PageReason;
+  skippedFor: 'robots' | 'time';
 }
 
 /** Machine codes for why a scan is partial (WS-3a). scs renders the words. */
@@ -59,6 +71,13 @@ export interface ThirdPartyRequest {
   host: string;
   category?: TrackerCategory;
   vendor?: string;
+  /** ISO 3166-1 alpha-2 country the vendor is based in (WS-11f); absent when not known. Information only. */
+  country?: string;
+  /**
+   * Present (true) when every request counted here carried Google Consent Mode's "denied" code
+   * (WS-11j): the tag still contacted the host, marked as refused. Absent otherwise.
+   */
+  consentDenied?: true;
   pageUrl: string;
   count: number;
 }
@@ -87,19 +106,55 @@ export interface Evidence {
   bannerVendor?: string;
   /** `banner` info item: whether we saw a consent banner on the requested page. */
   bannerFound?: boolean;
+  /** `coverage` info item: pages chosen but not loaded, and why (WS-11i). */
+  pagesSkipped?: SkippedPage[];
   /** `coverage` info item: published items W12–W16 we did find, and the first page each is on. */
   found?: { id: CheckId; pageUrl: string }[];
+  /**
+   * `consent-comparison` info item (WS-11h): tracker hosts and identifier names each choice added that
+   * the requested page had not loaded before any choice. Lists only; never a count compared or a ratio.
+   */
+  consentComparison?: { afterAccept: ChoiceAdded; afterReject: ChoiceAdded };
   /** `lang` attributes seen on the scanned pages (notice-languages info item). */
   pageLang?: string[];
-  form?: {
-    pageUrl: string;
-    method: 'get' | 'post' | 'dialog';
-    actionHost?: string;
-    actionScheme?: 'http' | 'https';
-    /** Field types and names only; never values. */
-    fields: { type: string; name: string }[];
-  };
+  /** W6, W8–W11: every form that triggered the check, in page order, at most 5 (WS-11g). */
+  forms?: FormEvidence[];
 }
+
+/** What one banner choice added on the requested page (consent-comparison, WS-11h). */
+export interface ChoiceAdded {
+  thirdParties: ThirdPartyRequest[];
+  identifiers: IdentifierSet[];
+}
+
+/** A form in evidence: where it is and how it sends. Field types and names only; never values or labels. */
+export interface FormEvidence {
+  pageUrl: string;
+  method: 'get' | 'post' | 'dialog';
+  actionHost?: string;
+  actionScheme?: 'http' | 'https';
+  fields: { type: string; name: string }[];
+  /**
+   * W11 only: the page's referrer policy when the page sets one (meta tag over header; WS-11g).
+   * Absent means the browser default, strict-origin-when-cross-origin, under which the query never
+   * reaches another site in a Referer.
+   */
+  referrerPolicy?: ReferrerPolicyToken;
+}
+
+/** The referrer-policy tokens of the W3C Referrer Policy spec. */
+export const REFERRER_POLICIES = [
+  'no-referrer',
+  'no-referrer-when-downgrade',
+  'origin',
+  'origin-when-cross-origin',
+  'same-origin',
+  'strict-origin',
+  'strict-origin-when-cross-origin',
+  'unsafe-url',
+] as const;
+
+export type ReferrerPolicyToken = (typeof REFERRER_POLICIES)[number];
 
 export interface Finding {
   id: CheckId;

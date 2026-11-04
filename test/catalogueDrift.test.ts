@@ -4,7 +4,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { CATALOGUE_VERSION, CHECK_IDS, INFO_IDS } from '../src/checks.js';
+import { CATALOGUE_VERSION, CHECK_IDS, INFO_IDS, SCS_PENDING_INFO_IDS } from '../src/checks.js';
+import { ENGINE_VERSION } from '../src/types.js';
 
 const scsRoot = resolve(process.env.SCS_PATH ?? '../scs');
 const catalogueDir = join(scsRoot, 'src', 'data', 'scan');
@@ -35,6 +36,14 @@ describe('catalogue drift helpers', () => {
   });
 });
 
+// release/v1 (WS-11): ids waiting for the scs catalogue are allowed only before 1.0.0.
+describe('ids waiting for scs', () => {
+  it('are none once the engine is 1.0.0 or later', () => {
+    const major = Number(ENGINE_VERSION.split('.')[0]);
+    expect(major >= 1 ? SCS_PENDING_INFO_IDS : []).toEqual([]);
+  });
+});
+
 describe.skipIf(!present)('catalogue drift against scs', () => {
   it('check ids match', () => {
     const ids = idsIn(readFileSync(checksFile, 'utf8')).filter((id) => /^W\d+$/.test(id));
@@ -43,7 +52,7 @@ describe.skipIf(!present)('catalogue drift against scs', () => {
 
   it('info ids match', () => {
     const ids = new Set(idsIn(readFileSync(checksFile, 'utf8')));
-    expect(INFO_IDS.filter((id) => !ids.has(id))).toEqual([]);
+    expect(INFO_IDS.filter((id) => !ids.has(id) && !SCS_PENDING_INFO_IDS.includes(id))).toEqual([]);
   });
 
   it('CATALOGUE_VERSION matches', () => {

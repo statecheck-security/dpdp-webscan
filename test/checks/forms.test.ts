@@ -41,16 +41,18 @@ describe('detectW6', () => {
     expect(detectW6(context({ forms: [ticked] }))).toEqual({
       id: 'W6',
       evidence: {
-        form: {
-          pageUrl: PAGE,
-          method: 'post',
-          actionHost: 'www.example.in',
-          actionScheme: 'https',
-          fields: [
-            { type: 'email', name: 'email' },
-            { type: 'checkbox', name: 'optin' },
-          ],
-        },
+        forms: [
+          {
+            pageUrl: PAGE,
+            method: 'post',
+            actionHost: 'www.example.in',
+            actionScheme: 'https',
+            fields: [
+              { type: 'email', name: 'email' },
+              { type: 'checkbox', name: 'optin' },
+            ],
+          },
+        ],
       },
     });
   });
@@ -75,12 +77,13 @@ describe('detectW8', () => {
       {
         host: 'www.clarity.ms',
         vendor: 'Microsoft Clarity',
+        country: 'US',
         category: 'session-replay',
         pageUrl: contactPage,
         count: 1,
       },
     ]);
-    expect(finding?.evidence.form?.pageUrl).toBe(contactPage);
+    expect(finding?.evidence.forms?.[0]?.pageUrl).toBe(contactPage);
   });
 
   it('ignores replay on a different page from the form', () => {
@@ -125,7 +128,7 @@ describe('detectW9', () => {
   const thirdParty = (host: string) => form({ actionHost: host, actionThirdParty: true });
 
   it('reports a personal form posting to another company', () => {
-    expect(detectW9(context({ forms: [thirdParty('forms.vendor.in')] }))?.evidence.form?.actionHost).toBe(
+    expect(detectW9(context({ forms: [thirdParty('forms.vendor.in')] }))?.evidence.forms?.[0]?.actionHost).toBe(
       'forms.vendor.in',
     );
   });
@@ -146,7 +149,7 @@ describe('detectW9', () => {
 describe('detectW10', () => {
   it('reports a personal form on a plain-http page', () => {
     const f = form({ pageUrl: 'http://www.example.in/', actionScheme: 'http' });
-    expect(detectW10(context({ forms: [f] }))?.evidence.form?.pageUrl).toBe('http://www.example.in/');
+    expect(detectW10(context({ forms: [f] }))?.evidence.forms?.[0]?.pageUrl).toBe('http://www.example.in/');
   });
 
   it('reports an https page whose form posts over http', () => {
@@ -160,7 +163,7 @@ describe('detectW10', () => {
 
 describe('detectW11', () => {
   it('reports a personal form sent by GET', () => {
-    expect(detectW11(context({ forms: [form({ method: 'get' })] }))?.evidence.form?.method).toBe('get');
+    expect(detectW11(context({ forms: [form({ method: 'get' })] }))?.evidence.forms?.[0]?.method).toBe('get');
   });
 
   it('ignores a form a script submits (no method, no action)', () => {
@@ -169,5 +172,73 @@ describe('detectW11', () => {
 
   it('ignores a GET form with no personal field', () => {
     expect(detectW11(context({ forms: [form({ method: 'get', fields: nonPersonal })] }))).toBeUndefined();
+  });
+
+  // WS-11g: the Referer note's facts. No policy set means the browser default (strict-origin-when-cross-origin).
+  it('carries no policy and no third parties when the page sets none and contacts none', () => {
+    const evidence = detectW11(context({ forms: [form({ method: 'get' })] }))?.evidence;
+    expect(evidence?.forms?.[0]).not.toHaveProperty('referrerPolicy');
+    expect(evidence).not.toHaveProperty('thirdParties');
+  });
+
+  it.each([
+    ['a meta tag', { referrerMeta: 'unsafe-url' }, undefined, 'unsafe-url'],
+    ['a legacy meta name', { referrerMeta: 'always' }, undefined, 'unsafe-url'],
+    ['a header', {}, 'no-referrer-when-downgrade', 'no-referrer-when-downgrade'],
+    ['a meta tag over the header', { referrerMeta: 'no-referrer' }, 'unsafe-url', 'no-referrer'],
+    ['the last known token of a header list', {}, 'no-referrer, unsafe-url, made-up', 'unsafe-url'],
+  ])('reads the policy from %s', (_name, extra, header, expected) => {
+    const ctx = context({
+      forms: [form({ method: 'get', ...extra })],
+      ...(header ? { referrerHeaders: new Map([[PAGE, header]]) } : {}),
+    });
+    expect(detectW11(ctx)?.evidence.forms?.[0]?.referrerPolicy).toBe(expected);
+  });
+
+  it('ignores a policy the browser would not know', () => {
+    const ctx = context({ forms: [form({ method: 'get', referrerMeta: 'leak-everything' })] });
+    expect(detectW11(ctx)?.evidence.forms?.[0]).not.toHaveProperty('referrerPolicy');
+  });
+
+  it('lists the third parties contacted on the form pages only', () => {
+    const allPages = snapshot({
+      label: 'all-pages',
+      requests: [request('www.google-analytics.com'), request('connect.facebook.net', { pageUrl: contactPage })],
+    });
+    const evidence = detectW11(context({ forms: [form({ method: 'get' })], allPages }))?.evidence;
+    expect(evidence?.thirdParties?.map((t) => t.host)).toEqual(['www.google-analytics.com']);
+  });
+});
+
+// WS-11g: every offending form, not just the first.
+describe('forms in evidence', () => {
+  const ticked = (pageUrl: string) => form({ pageUrl, checkboxes: [box(true, true)] });
+
+  it('lists every offending form in page order', () => {
+    const forms = [ticked(PAGE), form(), ticked(contactPage)];
+    expect(detectW6(context({ forms }))?.evidence.forms?.map((f) => f.pageUrl)).toEqual([PAGE, contactPage]);
+  });
+
+  it('stops at five', () => {
+    const forms = Array.from({ length: 7 }, () => form({ actionScheme: 'http' }));
+    expect(detectW10(context({ forms }))?.evidence.forms).toHaveLength(5);
+  });
+
+  it('lists every form with replay on its page, and each replay host once', () => {
+    const allPages = snapshot({
+      label: 'all-pages',
+      requests: [request('www.clarity.ms'), request('www.clarity.ms', { pageUrl: contactPage })],
+    });
+    const forms = [
+      form(),
+      form({ fields: [{ type: 'tel', name: 'phone', personal: true }] }),
+      form({ pageUrl: contactPage }),
+    ];
+    const evidence = detectW8(context({ forms, allPages }))?.evidence;
+    expect(evidence?.forms?.map((f) => f.pageUrl)).toEqual([PAGE, PAGE, contactPage]);
+    expect(evidence?.thirdParties?.map((t) => [t.host, t.pageUrl])).toEqual([
+      ['www.clarity.ms', PAGE],
+      ['www.clarity.ms', contactPage],
+    ]);
   });
 });

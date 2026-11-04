@@ -51,11 +51,16 @@ describe('categorise', () => {
   it('flags session replay and payment gateways', () => {
     expect(categorise('edge.fullstory.com')).toEqual({
       vendor: 'FullStory',
+      country: 'US',
       category: 'session-replay',
       sessionReplay: true,
     });
     expect(categorise('js.stripe.com')).toEqual({ vendor: 'Stripe', category: 'other', paymentGateway: true });
-    expect(categorise('www.google-analytics.com')).toEqual({ vendor: 'Google Analytics', category: 'analytics' });
+    expect(categorise('www.google-analytics.com')).toEqual({
+      vendor: 'Google Analytics',
+      category: 'analytics',
+      country: 'US',
+    });
   });
 });
 

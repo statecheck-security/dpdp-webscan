@@ -7,15 +7,18 @@
 import type { CaptureSnapshot } from '../capture.js';
 import { BENIGN_IDENTIFIERS, LARAVEL_CSRF, LARAVEL_SESSION } from '../data/keywords.js';
 import type { FormInfo } from '../forms.js';
-import type { Evidence, IdentifierSet, ThirdPartyRequest } from '../types.js';
+import { REFERRER_POLICIES } from '../types.js';
+import type { FormEvidence, IdentifierSet, ReferrerPolicyToken, ThirdPartyRequest } from '../types.js';
 import type { TrackerLookup } from './context.js';
 
 /** Third-party requests in a snapshot, one entry per host and page, with the vendor when the list knows it. */
 export function trackerRequests(snapshot: CaptureSnapshot, trackers: TrackerLookup): ThirdPartyRequest[] {
   const byHost = new Map<string, ThirdPartyRequest>();
+  const denied = new Map<string, number>();
   for (const r of snapshot.requests) {
     if (!r.isThirdParty) continue;
     const id = `${r.host} ${r.pageUrl}`;
+    denied.set(id, (denied.get(id) ?? 0) + (r.consentDenied ?? 0));
     const entry = byHost.get(id);
     if (entry) {
       entry.count += r.count;
@@ -26,9 +29,14 @@ export function trackerRequests(snapshot: CaptureSnapshot, trackers: TrackerLook
       host: r.host,
       category: match?.category ?? 'other',
       ...(match ? { vendor: match.vendor } : {}),
+      ...(match?.country ? { country: match.country } : {}),
       pageUrl: r.pageUrl,
       count: r.count,
     });
+  }
+  // Consent Mode (WS-11j): only when every request to the host from that page said "denied".
+  for (const [id, entry] of byHost) {
+    if (denied.get(id) === entry.count) entry.consentDenied = true;
   }
   return [...byHost.values()].sort((a, b) => a.host.localeCompare(b.host) || a.pageUrl.localeCompare(b.pageUrl));
 }
@@ -85,7 +93,7 @@ export function isPersonalForm(form: FormInfo): boolean {
 }
 
 /** Form evidence: where it is, how it sends, field types and names. Never values or labels. */
-export function formEvidence(form: FormInfo): NonNullable<Evidence['form']> {
+export function formEvidence(form: FormInfo): FormEvidence {
   return {
     pageUrl: form.pageUrl,
     method: form.method,
@@ -93,6 +101,43 @@ export function formEvidence(form: FormInfo): NonNullable<Evidence['form']> {
     ...(form.actionScheme ? { actionScheme: form.actionScheme } : {}),
     fields: form.fields.map(({ type, name }) => ({ type, name })),
   };
+}
+
+/** At most this many forms per finding (WS-11g): enough to show a pattern, short enough to read. */
+export const MAX_FORMS_IN_EVIDENCE = 5;
+
+/** Every offending form, in the order the scan met them, capped (WS-11g). */
+export function formsEvidence(forms: readonly FormInfo[]): FormEvidence[] {
+  return forms.slice(0, MAX_FORMS_IN_EVIDENCE).map(formEvidence);
+}
+
+const LEGACY_REFERRER: Readonly<Record<string, ReferrerPolicyToken>> = {
+  never: 'no-referrer',
+  always: 'unsafe-url',
+  'origin-when-crossorigin': 'origin-when-cross-origin',
+};
+
+/**
+ * A referrer policy as the browser reads it (W3C Referrer Policy): a header may list several tokens and
+ * the last one the browser knows wins; a meta tag also accepts the legacy names. Undefined when nothing
+ * known is set, which means the browser default.
+ */
+export function parseReferrerPolicy(raw: string | undefined, legacy = false): ReferrerPolicyToken | undefined {
+  let policy: ReferrerPolicyToken | undefined;
+  for (const token of (raw ?? '').toLowerCase().split(',')) {
+    const t = token.trim();
+    const known = REFERRER_POLICIES.find((p) => p === t) ?? (legacy ? LEGACY_REFERRER[t] : undefined);
+    if (known) policy = known;
+  }
+  return policy;
+}
+
+/** A page's policy: its <meta name=referrer> overrides the Referrer-Policy header (HTML spec). */
+export function effectiveReferrerPolicy(
+  meta: string | undefined,
+  header: string | undefined,
+): ReferrerPolicyToken | undefined {
+  return parseReferrerPolicy(meta, true) ?? parseReferrerPolicy(header);
 }
 
 const MAX_QUOTE_WORDS = 25;

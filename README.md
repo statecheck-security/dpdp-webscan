@@ -4,7 +4,7 @@ The engine behind **DPDPA Website Check** (`statechecksecurity.com/scan`). It lo
 
 Each finding points at the section of the Digital Personal Data Protection Act, 2023 or the DPDP Rules, 2025 it engages, labelled **settled**, **likely** or **open**. There is **no score**, and no "compliant" verdict.
 
-**Status:** v0. All sixteen checks (W1–W16) and the information items are built and tested; engine `0.9.6`, catalogue `2026-10-25-r2`. Scans are run by hand in the Docker container below and sent to the website, which renders and emails the report. There is no hosted service yet. The build plan is kept outside the repo.
+**Status:** v1. All sixteen checks (W1–W16) and the information items are built and tested; engine `1.0.0`, catalogue `2026-11-04`. v1 added banners drawn in consent-platform frames, a wait for late banners, the vendor's country, every offending form, W11's referrer policy, what accept and reject each changed, pages still loading or skipped, and Google Consent Mode's "denied" signal. Scans are run by hand in the Docker container below and sent to the website, which renders and emails the report. There is no hosted service yet. The build plan is kept outside the repo.
 
 ## What it checks
 
@@ -31,7 +31,7 @@ The engine emits check ids and evidence only. The titles, provisions, labels and
 
 W12–W16 are absence findings: they say what we did not find on the pages we scanned, never that the site does not have it. They read English text only.
 
-Information items, with no provision and no label: `banner` (seen or not, and its vendor), `site-cookies` (the session, security and consent-state cookies W2 leaves out), `third-party-locations` (third-party hosts that are not trackers), `notice-languages` (the `lang` attributes seen) and `coverage` (the pages read, and where each published item was found).
+Information items, with no provision and no label: `banner` (seen or not, and its vendor), `site-cookies` (the session, security and consent-state cookies W2 leaves out), `third-party-locations` (third-party hosts that are not trackers), `notice-languages` (the `lang` attributes seen), `coverage` (the pages read, pages chosen but not loaded, and where each published item was found) and `consent-comparison` (trackers and identifier names that only appeared after accept, and after reject).
 
 ## How a scan runs
 
@@ -75,14 +75,14 @@ Result files name other companies' sites. `results/` is gitignored; delete a res
 
 One JSON object per scan:
 
-- `engineVersion`, `catalogueVersion`: the website refuses versions it does not know (it accepts engine `0.9.x` and catalogue `2026-10-25-r2` today), so a minor engine bump needs a matching website change.
+- `engineVersion`, `catalogueVersion`: the website refuses versions it does not know (it accepts engine `1.0.x` with catalogue `2026-11-04`, and `0.9.x` with `2026-10-25-r2` for results scanned before 1.0.0), so a minor engine bump needs a matching website change.
 - `target`, `startedAt`, `finishedAt` (ISO 8601 UTC).
 - `partial` and `partialReasons`: `page-timeout`, `scan-timeout`, `bot-wall`, `ssrf-blocked`, `banner-not-found`, `navigation-error`.
-- `pages`: every page tried, with why it was chosen and what happened (`loaded`, `skipped-robots`, `blocked-bot-wall`, …).
+- `pages`: every page tried, with why it was chosen and what happened (`loaded`, `skipped-robots`, `blocked-bot-wall`, …); `settled: false` marks a page still loading when it was read, and `coverage` lists pages chosen but never loaded (`pagesSkipped`).
 - `findings`: `{ id, evidence }` for W1–W16, in id order.
 - `info`: the information items above.
 
-Evidence holds hostnames (never full URLs with query strings), cookie and storage names, form field types and names, page URLs and short quotes. Before a result leaves the engine, `assertRedacted` walks it and refuses anything value-shaped: a long `name=value` token, an email address, an over-long string, or a score-like key. `scan:send` checks again, in case the file was edited.
+Evidence holds hostnames (never full URLs with query strings) with the vendor and, when known, the country its company is based in (from the vendor's own legal pages; `src/data/vendorCountries.ts`, information only), cookie and storage names, form field types and names (every offending form, at most 5 per finding; W11 adds the page's referrer policy when it sets one), page URLs and short quotes. One exception to "hostnames only": on Google tag hosts the engine reads Google Consent Mode's `gcs` code and keeps only whether it said "denied" (`consentDenied`), never the code or the rest of the URL. Before a result leaves the engine, `assertRedacted` walks it and refuses anything value-shaped: a long `name=value` token, an email address, an over-long string, or a score-like key. `scan:send` checks again, in case the file was edited.
 
 ## Docker (egress-restricted scans)
 

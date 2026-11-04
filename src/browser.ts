@@ -120,7 +120,7 @@ export async function newHardenedContext(browser: Browser, opts: HardenedContext
 }
 
 export type LoadOutcome =
-  | { status: 'loaded'; httpStatus?: number; settled: boolean }
+  | { status: 'loaded'; httpStatus?: number; settled: boolean; referrerPolicyHeader?: string }
   | { status: 'bot-wall'; httpStatus: number }
   | { status: 'blocked'; reason: BlockedRequest['reason'] }
   | { status: 'timeout' | 'error'; httpStatus?: number };
@@ -168,6 +168,7 @@ export async function loadPage(
   const deadline = Date.now() + timeoutMs;
   const blockedBefore = opts.blocked?.length ?? 0;
   let httpStatus: number | undefined;
+  let referrerPolicyHeader: string | undefined;
   try {
     const response = await page.goto(url, { waitUntil: 'load', timeout: timeoutMs });
     if (response && redirectHops(response.request()) > MAX_REDIRECTS) {
@@ -175,6 +176,8 @@ export async function loadPage(
       return { status: 'blocked', reason: 'redirects' };
     }
     httpStatus = response?.status();
+    // W11's Referer note (WS-11g); the check parses it, nothing here interprets it.
+    referrerPolicyHeader = response?.headers()['referrer-policy']?.slice(0, 200);
     if (response && httpStatus !== undefined && BOT_WALL_STATUSES.has(httpStatus)) {
       const title = await withTimeout(
         page.title().catch(() => ''),
@@ -188,7 +191,10 @@ export async function loadPage(
     const refusal = opts.blocked?.slice(blockedBefore)[0];
     return refusal ? { status: 'blocked', reason: refusal.reason } : { status: 'error' };
   }
-  const withStatus = httpStatus === undefined ? {} : { httpStatus };
+  const withStatus = {
+    ...(httpStatus === undefined ? {} : { httpStatus }),
+    ...(referrerPolicyHeader ? { referrerPolicyHeader } : {}),
+  };
   const remaining = Math.min(deadline - Date.now(), IDLE_WAIT_MS);
   if (remaining <= 0) return { status: 'loaded', ...withStatus, settled: false };
   try {

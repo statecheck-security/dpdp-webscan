@@ -46,6 +46,11 @@ export interface FormInfo {
   /** Every named or typed field except buttons and hidden inputs; checkboxes are in `checkboxes` too. */
   fields: FormField[];
   checkboxes: FormCheckbox[];
+  /**
+   * The page's <meta name=referrer> content, as written (at most 100 characters), for W11's Referer
+   * note (WS-11g). Read by the check through parseReferrerPolicy; never put in a result as written.
+   */
+  referrerMeta?: string;
 }
 
 export type InspectForms = (page: Page) => Promise<FormInfo[]>;
@@ -74,6 +79,7 @@ interface InPageArgs {
 interface InPageForm {
   method: string;
   action: string;
+  referrerMeta: string;
   scriptHandled: boolean;
   fields: FormField[];
   checkboxes: FormCheckbox[];
@@ -99,6 +105,11 @@ function inPage(a: InPageArgs): InPageForm[] {
     const text = (byFor ?? wrapping)?.textContent ?? el.getAttribute('aria-label') ?? '';
     return words(text);
   };
+
+  // The last <meta name=referrer> wins, as in the browser.
+  const metas = document.querySelectorAll('meta[name="referrer" i]');
+  const last = metas[metas.length - 1];
+  const referrerMeta = last ? attr(last, 'content') : '';
 
   const forms: InPageForm[] = [];
   for (const form of [...document.querySelectorAll('form')].slice(0, a.maxForms)) {
@@ -138,6 +149,7 @@ function inPage(a: InPageArgs): InPageForm[] {
       scriptHandled: !form.hasAttribute('method') && !form.hasAttribute('action'),
       fields,
       checkboxes,
+      referrerMeta,
     });
   }
   return forms;
@@ -162,6 +174,7 @@ function toFormInfo(pageUrl: string, form: InPageForm): FormInfo {
     scriptHandled: form.scriptHandled,
     fields: form.fields,
     checkboxes: form.checkboxes,
+    ...(form.referrerMeta ? { referrerMeta: form.referrerMeta } : {}),
   };
 }
 

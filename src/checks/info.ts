@@ -15,13 +15,21 @@
  *    W1): payment gateways, CMPs, chat, fonts, unknown hosts. No country yet
  *    (v1): S.16 restricts no country, so this is information only.
  *  - notice-languages: the `lang` attributes seen (we check English text only).
- *  - coverage: the pages we read, and where each published item W12–W16 was found.
+ *  - coverage: the pages we read, where each published item W12–W16 was
+ *    found, and the pages chosen but not loaded (robots.txt, or out of time;
+ *    WS-11i), so the report can name what it could not check.
+ *  - consent-comparison (WS-11h): tracker hosts and identifiers that only
+ *    appeared after "accept", and those that only appeared after "reject",
+ *    each against the requested page before any choice. It shows whether the
+ *    banner holds anything back, and puts W1 and W3 in context. Emitted only
+ *    when both choice runs completed; otherwise the banner item says why.
  *
  * Nothing about a page we never loaded: with no loaded page there is only coverage.
  */
 
 import { isTracking } from '../data/trackers.js';
-import type { Info } from '../types.js';
+import type { CaptureSnapshot } from '../capture.js';
+import type { ChoiceAdded, Info, SkippedPage } from '../types.js';
 import type { CheckContext } from './context.js';
 import { identifiersIn, trackerRequests } from './evidence.js';
 import { decidingPeriod, grievancePeriods, PUBLISHED, searchedPages } from './published.js';
@@ -41,9 +49,40 @@ function found(ctx: CheckContext): NonNullable<Info['evidence']['found']> {
   return out.sort((a, b) => Number(a.id.slice(1)) - Number(b.id.slice(1)));
 }
 
+/** Trackers contacted and identifiers set after the choice that the page had not loaded before any choice. */
+function choiceAdded(ctx: CheckContext, run: CaptureSnapshot): ChoiceAdded {
+  const before = new Set(
+    trackerRequests(ctx.baseline, ctx.trackers)
+      .filter((r) => isTracking(r.category))
+      .map((r) => r.host),
+  );
+  const named = new Set(identifiersIn(ctx.baseline).map((i) => `${i.store} ${i.domain} ${i.name}`));
+  return {
+    thirdParties: trackerRequests(run, ctx.trackers).filter((r) => isTracking(r.category) && !before.has(r.host)),
+    identifiers: identifiersIn(run, { sinceMarkOnly: true }).filter(
+      (i) => !named.has(`${i.store} ${i.domain} ${i.name}`),
+    ),
+  };
+}
+
+/** Chosen pages we did not load: robots.txt said no (recorded in pages), or the scan ran out of time first. */
+function skipped(ctx: CheckContext): SkippedPage[] {
+  const robots = ctx.pages
+    .filter((p) => p.status === 'skipped-robots')
+    .map((p): SkippedPage => ({ url: p.url, reason: p.reason, skippedFor: 'robots' }));
+  const tried = new Set(ctx.pages.map((p) => p.url));
+  const time = (ctx.plannedPages ?? [])
+    .filter((p) => !tried.has(p.url))
+    .map((p): SkippedPage => ({ url: p.url, reason: p.reason, skippedFor: 'time' }));
+  return [...robots, ...time];
+}
+
 export function buildInfo(ctx: CheckContext): Info[] {
   const searched = searchedPages(ctx).map((p) => p.url);
-  const coverage: Info = { id: 'coverage', evidence: { pagesSearched: searched, found: found(ctx) } };
+  const coverage: Info = {
+    id: 'coverage',
+    evidence: { pagesSearched: searched, found: found(ctx), pagesSkipped: skipped(ctx) },
+  };
   if (ctx.pages[0]?.status !== 'loaded') return [coverage];
 
   const control = ctx.persistentControlFoundOn[0];
@@ -68,5 +107,18 @@ export function buildInfo(ctx: CheckContext): Info[] {
     },
     { id: 'notice-languages', evidence: { pageLang: langs } },
     coverage,
+    ...(ctx.afterAccept && ctx.afterReject
+      ? [
+          {
+            id: 'consent-comparison' as const,
+            evidence: {
+              consentComparison: {
+                afterAccept: choiceAdded(ctx, ctx.afterAccept),
+                afterReject: choiceAdded(ctx, ctx.afterReject),
+              },
+            },
+          },
+        ]
+      : []),
   ];
 }

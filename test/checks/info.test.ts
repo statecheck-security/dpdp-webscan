@@ -14,7 +14,7 @@ const text = (t: string, langs = ['en']) => ({ text: t, langs, hasMailto: false 
 describe('buildInfo', () => {
   it('reports only coverage when the requested page did not load', () => {
     const ctx = context({ pages: [{ url: PAGE, reason: 'requested', status: 'blocked-bot-wall', httpStatus: 403 }] });
-    expect(buildInfo(ctx)).toEqual([{ id: 'coverage', evidence: { pagesSearched: [], found: [] } }]);
+    expect(buildInfo(ctx)).toEqual([{ id: 'coverage', evidence: { pagesSearched: [], found: [], pagesSkipped: [] } }]);
   });
 
   it('says no banner was seen, lists non-tracker third parties before any click, and the languages', () => {
@@ -106,6 +106,7 @@ describe('buildInfo', () => {
           { id: 'W14', pageUrl: `${PAGE}grievance` },
           { id: 'W15', pageUrl: `${PAGE}privacy` },
         ],
+        pagesSkipped: [],
       },
     });
   });
@@ -122,5 +123,88 @@ describe('buildInfo', () => {
       ]),
     });
     expect(buildInfo(ctx).at(-1)?.evidence.found).toEqual([{ id: 'W14', pageUrl: PAGE }]);
+  });
+});
+
+// WS-11h: what each banner choice added on the requested page.
+describe('consent-comparison', () => {
+  const comparison = (ctx: Parameters<typeof buildInfo>[0]) =>
+    buildInfo(ctx).find((i) => i.id === 'consent-comparison')?.evidence.consentComparison;
+  const run = (label: 'after-accept' | 'after-reject', parts: Parameters<typeof snapshot>[0] = {}) =>
+    snapshot({ label, requests: [], ...parts });
+
+  it('is absent unless both choice runs completed', () => {
+    expect(comparison(context({ afterReject: run('after-reject') }))).toBeUndefined();
+    expect(comparison(context({ afterAccept: run('after-accept') }))).toBeUndefined();
+  });
+
+  it('lists empty additions when neither choice loads anything', () => {
+    expect(comparison(context({ afterAccept: run('after-accept'), afterReject: run('after-reject') }))).toEqual({
+      afterAccept: { thirdParties: [], identifiers: [] },
+      afterReject: { thirdParties: [], identifiers: [] },
+    });
+  });
+
+  it('lists trackers and identifiers each choice added, leaving out what loaded before any choice', () => {
+    const baseline = snapshot({
+      requests: [request('www.google-analytics.com')],
+      cookies: [cookie('_ga', 'example.in', { setSinceMark: false })],
+    });
+    const afterAccept = run('after-accept', {
+      requests: [request('www.google-analytics.com'), request('connect.facebook.net'), request('cdn.cookielaw.org')],
+      cookies: [cookie('_ga', 'example.in'), cookie('_fbp', 'example.in'), cookie('OptanonConsent', 'example.in')],
+    });
+    const afterReject = run('after-reject', {
+      requests: [request('www.clarity.ms')],
+      storage: [storage('https://www.example.in', ['_clck'])],
+    });
+    const result = comparison(context({ baseline, afterAccept, afterReject }));
+    // Analytics loaded before any choice is W1's, not an addition; the CMP and its consent cookie are not trackers.
+    expect(result?.afterAccept.thirdParties.map((t) => t.host)).toEqual(['connect.facebook.net']);
+    expect(result?.afterAccept.identifiers.map((i) => i.name)).toEqual(['_fbp']);
+    expect(result?.afterReject.thirdParties.map((t) => t.host)).toEqual(['www.clarity.ms']);
+    expect(result?.afterReject.identifiers.map((i) => [i.store, i.name])).toEqual([['localStorage', '_clck']]);
+  });
+
+  it('carries lists only: no count compared, no ratio', () => {
+    const evidence = comparison(context({ afterAccept: run('after-accept'), afterReject: run('after-reject') }));
+    expect(Object.keys(evidence ?? {})).toEqual(['afterAccept', 'afterReject']);
+    expect(Object.keys(evidence?.afterAccept ?? {})).toEqual(['thirdParties', 'identifiers']);
+  });
+});
+
+// WS-11i: pages chosen but never loaded.
+describe('coverage of skipped pages', () => {
+  const pagesSkipped = (ctx: Parameters<typeof buildInfo>[0]) =>
+    buildInfo(ctx).find((i) => i.id === 'coverage')?.evidence.pagesSkipped;
+
+  it('lists pages robots.txt disallowed and pages the scan ran out of time for, robots first', () => {
+    const ctx = context({
+      pages: [
+        { url: PAGE, reason: 'requested', status: 'loaded', httpStatus: 200 },
+        { url: `${PAGE}privacy`, reason: 'privacy', status: 'loaded', httpStatus: 200, settled: false },
+        { url: `${PAGE}contact`, reason: 'contact', status: 'skipped-robots' },
+      ],
+      plannedPages: [
+        { url: `${PAGE}privacy`, reason: 'privacy' },
+        { url: `${PAGE}contact`, reason: 'contact' },
+        { url: `${PAGE}terms`, reason: 'terms' },
+      ],
+    });
+    expect(pagesSkipped(ctx)).toEqual([
+      { url: `${PAGE}contact`, reason: 'contact', skippedFor: 'robots' },
+      { url: `${PAGE}terms`, reason: 'terms', skippedFor: 'time' },
+    ]);
+  });
+
+  it('does not count a page that loaded, timed out or errored as skipped', () => {
+    const ctx = context({
+      pages: [
+        { url: PAGE, reason: 'requested', status: 'loaded', httpStatus: 200 },
+        { url: `${PAGE}privacy`, reason: 'privacy', status: 'timeout' },
+      ],
+      plannedPages: [{ url: `${PAGE}privacy`, reason: 'privacy' }],
+    });
+    expect(pagesSkipped(ctx)).toEqual([]);
   });
 });
