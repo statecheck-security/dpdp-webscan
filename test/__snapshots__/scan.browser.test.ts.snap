@@ -2,8 +2,8 @@
 
 exports[`result on fixtures > matches the reviewed snapshot for clean, timestamps normalised 1`] = `
 {
-  "catalogueVersion": "2026-10-25-r2",
-  "engineVersion": "0.14.0",
+  "catalogueVersion": "2026-11-04",
+  "engineVersion": "1.0.0",
   "findings": [],
   "finishedAt": "<time>",
   "info": [

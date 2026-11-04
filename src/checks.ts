@@ -5,7 +5,7 @@
  * two when `../scs` is checked out (same approach as scs's legal-rules drift check).
  */
 
-export const CATALOGUE_VERSION = '2026-10-25-r2';
+export const CATALOGUE_VERSION = '2026-11-04';
 
 export const CHECK_IDS = [
   'W1', // third-party trackers before any interaction
@@ -41,8 +41,8 @@ export const INFO_IDS = [
 export type InfoId = (typeof INFO_IDS)[number];
 
 /**
- * Ids built on release/v1 that the scs catalogue gets with the 1.0.0 release (WS-11l). The drift test
- * skips them until then and fails once ENGINE_VERSION reaches 1.0.0 while any is still listed, so v1
- * cannot ship ahead of the website.
+ * Ids built on a release branch that the scs catalogue gets only with the release (WS-11h). The drift
+ * test skips them until then and fails once ENGINE_VERSION is 1.0.0 or later while any is still listed,
+ * so a release cannot ship ahead of the website. Empty since 1.0.0 (scs catalogue 2026-11-04).
  */
-export const SCS_PENDING_INFO_IDS: readonly InfoId[] = ['consent-comparison'];
+export const SCS_PENDING_INFO_IDS: readonly InfoId[] = [];
