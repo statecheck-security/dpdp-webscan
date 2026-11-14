@@ -1,0 +1,21 @@
+dpdp-webscan
+Copyright 2026 StateCheck Security (https://statechecksecurity.com)
+
+This product includes software developed by StateCheck Security and by the
+contributors listed in the repository history.
+
+dpdp-webscan is the engine behind the DPDPA Website Check at
+https://statechecksecurity.com/scan. It is licensed under the Apache License,
+Version 2.0 (see LICENSE). When you redistribute it or a derivative, keep this
+NOTICE file with it.
+
+The engine emits check ids and evidence only. The words a reader sees for each
+check (its title, the section of the Digital Personal Data Protection Act, 2023
+or the rule of the Digital Personal Data Protection Rules, 2025 it engages, its
+label and its fix) live in the StateCheck Security website's catalogue and are
+reviewed there. Nothing this software produces is legal advice.
+
+The tracker, consent-platform and vendor-country lists in src/data/ are kept by
+hand by StateCheck Security from the vendors' own published pages. They do not
+include, and are not derived from, DuckDuckGo Tracker Radar, the Disconnect
+list or the Ghostery tracker database.

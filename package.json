@@ -1,6 +1,6 @@
 {
   "name": "dpdp-webscan",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "DPDPA Website Check engine: loads a public site in headless Chromium and reports what it does before visitors choose, mapped to the DPDP Act and Rules. No score.",
   "private": true,
   "type": "module",
@@ -33,5 +33,14 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.0",
     "vitest": "^5.0.5"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/statecheck-security/dpdp-webscan.git"
+  },
+  "homepage": "https://statechecksecurity.com/scan",
+  "bugs": {
+    "url": "https://github.com/statecheck-security/dpdp-webscan/issues"
   }
 }
