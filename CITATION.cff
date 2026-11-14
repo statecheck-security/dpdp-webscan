@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: 'If you use this engine in research or a report, please cite it as below.'
+title: 'dpdp-webscan'
+type: software
+authors:
+  - name: 'StateCheck Security'
+    website: 'https://statechecksecurity.com'
+version: '1.0.0'
+date-released: '2026-11-04'
+license: Apache-2.0
+repository-code: 'https://github.com/statecheck-security/dpdp-webscan'
+url: 'https://statechecksecurity.com/scan'
+abstract: >-
+  The engine behind the DPDPA Website Check. It loads a public website in headless
+  Chromium and records what the site does before a visitor makes a choice: trackers and
+  identifiers that load first, how the consent banner behaves on reject, what forms
+  collect and where they send it, and whether the site publishes a privacy contact, a
+  way to make rights requests and a grievance period. Each check is mapped to a section
+  of India's Digital Personal Data Protection Act, 2023 or a rule of the DPDP Rules,
+  2025. It emits check ids and evidence only, never a score, and it is not legal advice.
+keywords:
+  - DPDP Act
+  - DPDPA
+  - India
+  - privacy
+  - website scanner
+  - consent banner
+  - trackers
+  - cookies

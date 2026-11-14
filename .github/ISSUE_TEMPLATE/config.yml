@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security problem
+    url: https://statechecksecurity.com/#contact
+    about: Report a way to reach a non-public address, leave the target's domain or carry a value out privately, not as an issue (see SECURITY.md).
+  - name: Wording of a finding
+    url: https://github.com/theAstiv/scs/issues
+    about: The title, provision, label and fix a reader sees live in the website's catalogue; report wording there.
