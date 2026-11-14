@@ -1,14 +1,39 @@
 # dpdp-webscan
 
-The engine behind **DPDPA Website Check** (`statechecksecurity.com/scan`). It loads a public website in headless Chromium and records what the site does before a visitor makes a choice: trackers and identifiers that load first, how the consent banner behaves on reject, what forms collect and where they send it, and whether the site publishes a privacy contact, a way to make rights requests and a grievance period.
+[![CI](https://github.com/statecheck-security/dpdp-webscan/actions/workflows/ci.yml/badge.svg)](https://github.com/statecheck-security/dpdp-webscan/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/statecheck-security/dpdp-webscan?style=flat)](https://github.com/statecheck-security/dpdp-webscan/releases)
+[![Node](https://img.shields.io/badge/node-%E2%89%A522-blue.svg)](.nvmrc)
 
-Each finding points at the section of the Digital Personal Data Protection Act, 2023 or the DPDP Rules, 2025 it engages, labelled **settled**, **likely** or **open**. There is **no score**, and no "compliant" verdict.
+The engine behind **DPDPA Website Check** ([statechecksecurity.com/scan](https://statechecksecurity.com/scan)). It loads a public website in headless Chromium and records what the site does before a visitor makes a choice: trackers and identifiers that load first, how the consent banner behaves on reject, what forms collect and where they send it, and whether the site publishes a privacy contact, a way to make rights requests and a grievance period.
 
-**Status:** v1. All sixteen checks (W1–W16) and the information items are built and tested; engine `1.0.0`, catalogue `2026-11-04`. v1 added banners drawn in consent-platform frames, a wait for late banners, the vendor's country, every offending form, W11's referrer policy, what accept and reject each changed, pages still loading or skipped, and Google Consent Mode's "denied" signal. Scans are run by hand in the Docker container below and sent to the website, which renders and emails the report. There is no hosted service yet. The build plan is kept outside the repo.
+Each finding points at the section of India's Digital Personal Data Protection Act, 2023 or the rule of the DPDP Rules, 2025 it engages, labelled **settled**, **likely** or **open**. There is **no score**, and no "compliant" verdict.
+
+> **Not legal advice.** The engine reports what a site did on the pages it loaded, and the provision that behaviour engages. Whether that behaviour is lawful depends on the site's processing, its contracts and how the Data Protection Board reads the Rules. The provisions the checks engage take effect on 13 May 2027. Have your counsel or DPO review a report before acting on it.
+
+**Status:** v1. All sixteen checks (W1–W16) and the information items are built and tested; engine `1.0.0`, catalogue `2026-11-04`. Scans for the website are run by hand in the Docker container below and sent to the website, which renders and emails the report. There is no hosted service; one is planned only when demand asks for it.
+
+## Scope and non-goals
+
+The engine does one thing: it observes a public site's behaviour toward a first-time visitor, in three states (no interaction, after reject, after accept), and reports the observations as check ids with evidence.
+
+It does not:
+
+- give a score, grade, rating or verdict, for a site or for a finding;
+- read the text of a privacy notice for its content (it looks only for the published items W12–W16 name, in English);
+- check anything that is not visible from the outside: internal systems, contracts, retention, data flows after a form is submitted;
+- submit forms, log in, download files, or click anything but consent-banner controls;
+- scan more than 5 pages, leave the site's registrable domain, or scan private addresses;
+- store cookie or storage values, page HTML, page text, screenshots, or the names and addresses it reads on a page;
+- run as a hosted service from this repository (`src/send.ts` posts a result to the StateCheck website; hosting a scan worker is out of scope).
+
+## Where a finding's words come from
+
+The engine emits check ids and evidence only. No string in `src/` is ever shown to a reader. The title, provision, label and fix for each check live in the StateCheck Security website's catalogue (`src/data/scan/` in [theAstiv/scs](https://github.com/theAstiv/scs)), where every sentence that cites the Act or the Rules is claim-checked before it is published. `CATALOGUE_VERSION` in [`src/checks.ts`](src/checks.ts) must equal the catalogue's version, and `CHECK_IDS` must equal its id list; `test/catalogueDrift.test.ts` compares them whenever the website repository is checked out beside this one (`../scs` or `SCS_PATH`), and skips with a note otherwise. The result carries both `engineVersion` and `catalogueVersion`, and the website refuses versions it does not know.
+
+So a wording problem is a website issue, and a detection problem is an engine issue. [CONTRIBUTING.md](CONTRIBUTING.md) has the ground rules.
 
 ## What it checks
-
-The engine emits check ids and evidence only. The titles, provisions, labels and fixes a reader sees live in the website's catalogue (scs, `src/data/scan/`), so the legal wording is reviewed in one place.
 
 | Id  | What the engine looks for                                                                                          |
 | --- | ------------------------------------------------------------------------------------------------------------------ |
@@ -51,6 +76,23 @@ Limits: 5 pages, 20 s per page (at most 5 s of that waiting for the network to g
 - Store cookie or storage values, page HTML, page text, screenshots, or names and addresses it reads on a page. Quotes (W5, W14) are at most 25 words, with emails and phone numbers masked.
 - Scan private or internal addresses.
 - Give a score.
+
+[SECURITY.md](SECURITY.md) describes the SSRF and egress defences behind these promises, and how to report a way round them.
+
+## How this compares
+
+Several open-source tools look at what a website does to a visitor. The differences are in what they interact with, what they store, and whose law they speak.
+
+| Tool                                                                                      | Consent states                                              | Legal framing                                                   | What it keeps                                           |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------- |
+| **dpdp-webscan**                                                                          | None, after reject, after accept; up to 5 pages             | DPDP Act 2023 and Rules 2025, settled / likely / open, no score | Names and hostnames only; values never leave the engine |
+| [Blacklight](https://github.com/the-markup/blacklight-collector) (The Markup)             | No banner interaction                                       | None; a tracker inventory (ads, session replay, fingerprinting) | Full inspection data                                    |
+| [EDPS Website Evidence Collector](https://code.europa.eu/edps/website-evidence-collector) | No banner interaction by default; scripted actions possible | GDPR and ePrivacy evidence for a regulator's inspection         | Evidence pack with screenshots and HAR files            |
+| [Vettam dpdp-compliance-scanner](https://github.com/Vettam/dpdp-compliance-scanner)       | Single page; captures the banner                            | DPDP Act and Rules, legal certainty rather than severity        | Inventory of cookies, storage, requests and embeds      |
+| [gdpr-cookie-scanner](https://github.com/Slashgear/gdpr-cookie-scanner) (Slashgear)       | Reject and accept runs                                      | GDPR, with letter grades and an exit code for CI                | Cookie inventory and screenshots                        |
+| [consenti](https://github.com/santoshe61/consenti)                                        | None, reject, accept                                        | GDPR, undeclared trackers                                       | Tracker inventory                                       |
+
+Blacklight's detection list is the benchmark for tracker inventories; it does not click banners and has no legal mapping. The EDPS collector is the regulator-grade evidence tool for European inspections and keeps everything, which is the opposite of this engine's redaction rule. Vettam's scanner maps a single page's collection to the DPDP Act with the same no-verdict stance as this engine, and says it does not check the published notice's text; the reject path (W3–W5) and the published items (W12–W16) are what this engine adds. consenti's three-state crawl (none, reject, accept) is the same idea this engine already runs on every scan; the difference is the DPDP mapping and that this engine records names rather than values.
 
 ## Use
 
@@ -114,6 +156,23 @@ npm run test:browser   # *.browser.test.ts, needs `npm run browsers` once
 npm test               # everything
 ```
 
-Tests never touch the network: browser tests route every request to local fixture sites (`fixtures/README.md`). Checks are pure functions over captured data (`src/checks/`), so each has a unit test from a hand-built context as well as a fixture scan.
+Tests never touch the network: browser tests route every request to local fixture sites (`fixtures/README.md`). Checks are pure functions over captured data (`src/checks/`), so each has a unit test from a hand-built context as well as a fixture scan. No rule, fixture, snapshot or test names or matches a real site; the only real target this repository names is statechecksecurity.com.
+
+The tracker, consent-platform and vendor-country lists in `src/data/` are kept by hand from the vendors' own published pages, each entry with its source. They do not include, and are not derived from, DuckDuckGo Tracker Radar, the Disconnect list or the Ghostery tracker database.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the ground rules and the pull request checklist, and [CHANGELOG.md](CHANGELOG.md) for what each release changed.
+
+## Related tools
+
+- **[dpdp-scan](https://github.com/statecheck-security/dpdp-scan)**: the source-code scanner. It finds Indian identifiers (Aadhaar, PAN, GSTIN, UPI, IFSC, mobile) in code, fixtures and logs with real checksums, and reads SQL, Prisma and OpenAPI schemas into a data inventory. A different tool for a different surface; the two share only the findings model.
+- **[dpdpa-engineering-kit](https://github.com/statecheck-security/dpdpa-engineering-kit)**: tested code for the obligations behind the findings: consent records, breach notification, encryption, data residency and CI/CD privacy gates.
+
+## Licence
+
+[Apache License 2.0](LICENSE). Keep the [NOTICE](NOTICE) file with any redistribution.
+
+## About
+
+Maintained by [StateCheck Security](https://statechecksecurity.com), which does VAPT, source code review, threat modelling and DPDPA compliance work for Indian companies. Questions and fixes are welcome as issues or pull requests. To report a security problem in the engine, see [SECURITY.md](SECURITY.md).
 
 Not legal advice. The provisions take effect on 13 May 2027.
